@@ -17,3 +17,7 @@ test_data = data['test']
 # Now the dataset is in numpy arrays for us to use.
 print(type(train_data))
 print(train_data[0].shape)
+
+train_data.shape
+
+train_data[0]
