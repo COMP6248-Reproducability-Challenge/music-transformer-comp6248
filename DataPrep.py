@@ -13,7 +13,7 @@ def tensorFromSequence(sequence):
 
 # Function to prepare the data into pairs (input, target)
 def prepareData(npz_file,split='train'):
-    print("Preparing data for",split,"split.")
+    print("Preparing data for",split,"split...")
     full_data = np.load(npz_file, fix_imports=True, encoding="latin1")
     data = full_data[split]
 
@@ -38,3 +38,6 @@ def prepareData(npz_file,split='train'):
 
         # Combine all pairs into one big list of pairs
         pairs.append(pair)
+
+    print("Generated data pairs.")
+    return pairs
