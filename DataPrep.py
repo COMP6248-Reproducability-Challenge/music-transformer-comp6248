@@ -9,7 +9,8 @@ import numpy as np
 
 # Generate tensors from the sequence to be used for training.
 def tensorFromSequence(sequence):
-    return torch.tensor(sequence)
+    output = Variable(torch.tensor(sequence))
+    return output
 
 # Function to prepare the data into pairs (input, target)
 def prepareData(npz_file,split='train'):
