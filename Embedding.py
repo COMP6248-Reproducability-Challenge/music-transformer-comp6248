@@ -11,8 +11,8 @@ from torch.autograd import Variable
 
 class Embedder(nn.Module):
     """
-        vocab_size = size of the dictionary of embeddings (88)
-        d_model = size of each embedding vectors (4?)
+        vocab_size = size of the dictionary of embeddings
+        d_model = size of each embedding vectors
     """
     def __init__(self, vocab_size, d_model):
         super().__init__()

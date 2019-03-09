@@ -6,6 +6,7 @@
 import torch
 from torch.utils.data.dataset import Dataset
 import numpy as np
+from torch.autograd import Variable
 
 # Generate tensors from the sequence to be used for training.
 def tensorFromSequence(sequence):
