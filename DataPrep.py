@@ -29,7 +29,7 @@ def prepareData(npz_file,split='train'):
         input_seq = np.nan_to_num(input_seq.reshape(1,input_seq.size))
 
         # Generate target
-        output_seq = input_seq[1:]
+        output_seq = input_seq[:,1:]
 
         # TODO: Append an EOS_token for the output
 
