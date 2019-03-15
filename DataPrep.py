@@ -43,3 +43,24 @@ def prepareData(npz_file,split='train'):
 
     print("Generated data pairs.")
     return pairs
+
+def GenerateVocab(npz_file):
+    """
+    Generate vocabulary for the dataset
+    """
+    full_data = np.load(npz_file, fix_imports=True, encoding="latin1")
+    train_data = full_data['train']
+    validation_data = full_data['valid']
+    test_data = full_data['test']
+
+    combined_data = np.concatenate((train_data, validation_data, test_data))
+
+    vocab = np.nan
+    for sequences in combined_data:
+        vocab = np.append(vocab,np.unique(sequences))
+
+    vocab = np.unique(vocab)
+    vocab = vocab[~np.isnan(vocab)]
+    vocab = np.append(vocab, np.nan)
+
+    return vocab
