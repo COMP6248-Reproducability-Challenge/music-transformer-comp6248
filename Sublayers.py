@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import math
+import torch.nn.functional as F
 
 
 def attention(q, v, k, d_k, mask = None, dropout = None):
@@ -56,7 +58,7 @@ class MultiheadAttention(nn.Module):
         scores = attention(q, k, v, self.d_k, mask, self.dropout)
 
         #concatenate heads and put through final linear layer
-        cocat = scores.transpose(1,2).contiguous().view(bs, -1, self.d_model)
+        concat = scores.transpose(1,2).contiguous().view(bs, -1, self.d_model)
         output = self.out(concat)
 
         return output
