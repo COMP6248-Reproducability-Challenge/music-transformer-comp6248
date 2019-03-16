@@ -4,11 +4,16 @@
 # Description: Run this script to train the music-transformer model.
 import argparse
 import torch
+from DataPrep import GenerateVocab, PrepareData
+from Models import get_model
 
-def train():
-    raise NotImplementedError
+def train(model, opt):
+    print("training model...")
+    # TODO: Train the model
+
 
 def main():
+    # Add parser to parse in the arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('-src_data', required=False)
     parser.add_argument('-trg_data', required=False)
@@ -16,25 +21,44 @@ def main():
     parser.add_argument('-trg_lang', required=False)
     parser.add_argument('-no_cuda', action='store_true')
     parser.add_argument('-SGDR', action='store_true')
-    parser.add_argument('-epochs', type=int, default=2)
-    parser.add_argument('-d_model', type=int, default=512)
-    parser.add_argument('-n_layers', type=int, default=6)
+    parser.add_argument('-epochs', type=int, default=10)
+    parser.add_argument('-d_model', type=int, default=256)
+    parser.add_argument('-ff_hs', type=int, default=1024)
+    parser.add_argument('-n_layers', type=int, default=5)
     parser.add_argument('-heads', type=int, default=8)
     parser.add_argument('-dropout', type=int, default=0.1)
-    parser.add_argument('-batchsize', type=int, default=1500)
+    parser.add_argument('-batchsize', type=int, default=1)
+    parser.add_argument('-max_seq_len', type=int, default=1024)
     parser.add_argument('-printevery', type=int, default=100)
     parser.add_argument('-lr', type=int, default=0.0001)
     parser.add_argument('-load_weights')
     parser.add_argument('-create_valset', action='store_true')
-    parser.add_argument('-max_strlen', type=int, default=80)
     parser.add_argument('-floyd', action='store_true')
     parser.add_argument('-checkpoint', type=int, default=0)
 
     opt = parser.parse_args()
 
-    opt.device = 0 if opt.no_cuda is False else -1
-    if opt.device == 0:
-        assert torch.cuda.is_available()
+    # Check if the device has cuda
+    # opt.device = 0 if opt.no_cuda is False else -1
+    # if opt.device == 0:
+    #     assert torch.cuda.is_available()
+
+    # Generate the vocabulary from the data
+    opt.vocab = GenerateVocab(opt.src_data)
+
+    # Setup the dataset for training split
+    opt.train = PrepareData(opt.src_data ,'train', int(opt.max_seq_len))
+
+    # Create the model using the arguments and the vocab size
+    model = get_model(opt, len(opt.vocab))
+
+    # TODO: Set up optimizer for training
+
+    # Train the model
+    train(model, opt)
+
+    # TODO: Evaluate the trained model
+
 
 if __name__ == "__main__":
     main()
