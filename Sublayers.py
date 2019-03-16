@@ -19,7 +19,7 @@ def attention(q, v, k, d_k, mask = None, dropout = None):
 
     return output
 
-class MultiheadAttention(nn.Module):
+class MultiHeadAttention(nn.Module):
     def __init__(self, d_model, heads, dropout = 0.1):
         super().__init__()
 
@@ -71,7 +71,7 @@ class Norm(nn.Module):
 
         #create two learnable parameters to calibrate normalisation
         self.alpha = nn.Parameter(torch.ones(self.size))
-        self.bias = nn.Paramter(torch.ones(self.size))
+        self.bias = nn.Parameter(torch.ones(self.size))
 
         self.eps = eps
 
