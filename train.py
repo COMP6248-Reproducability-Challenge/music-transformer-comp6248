@@ -21,7 +21,7 @@ def train(model, opt):
     input_mask, target_mask = create_masks(input, target, opt)
 
     preds = model(input, target, input_mask, target_mask)
-    
+
     print(input_mask.shape)
     print(target_mask.shape)
 
@@ -37,7 +37,7 @@ def main():
     parser.add_argument('-SGDR', action='store_true')
     parser.add_argument('-epochs', type=int, default=10)
     parser.add_argument('-d_model', type=int, default=256)
-    parser.add_argument('-ff_hs', type=int, default=1024)
+    parser.add_argument('-d_ff', type=int, default=1024)
     parser.add_argument('-n_layers', type=int, default=5)
     parser.add_argument('-heads', type=int, default=8)
     parser.add_argument('-dropout', type=int, default=0.1)

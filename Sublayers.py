@@ -20,7 +20,7 @@ def attention(q, v, k, d_k, mask = None, dropout = None):
     return output
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_model, heads, dropout = 0.1):
+    def __init__(self, heads, d_model, dropout = 0.1):
         super().__init__()
 
         self.d_model = d_model

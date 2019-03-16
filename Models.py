@@ -13,12 +13,12 @@ def get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
 
 class Encoder(nn.Module):
-    def __init__(self, vocab_size, d_model, N, heads, dropout, max_seq_len):
+    def __init__(self, vocab_size, d_model, N, heads, dropout, max_seq_len, d_ff):
         super().__init__()
         self.N = N
         self.embed = Embedder(vocab_size, d_model)
         self.pe = PositionalEncoder(d_model, dropout, max_seq_len)
-        self.layers = get_clones(EncoderLayer(d_model, heads, dropout), N)
+        self.layers = get_clones(EncoderLayer(d_model, heads, d_ff, dropout), N)
         self.norm = Norm(d_model)
 
     def forward(self, src, mask):
@@ -29,12 +29,12 @@ class Encoder(nn.Module):
         return self.norm(x)
 
 class Decoder(nn.Module):
-    def __init__(self, vocab_size, d_model, N, heads, dropout, max_seq_len):
+    def __init__(self, vocab_size, d_model, N, heads, dropout, max_seq_len, d_ff):
         super().__init__()
         self.N = N
         self.embed = Embedder(vocab_size, d_model)
         self.pe = PositionalEncoder(d_model, dropout, max_seq_len)
-        self.layers = get_clones(DecoderLayer(d_model, heads, dropout), N)
+        self.layers = get_clones(DecoderLayer(d_model, heads, d_ff, dropout), N)
         self.norm = Norm(d_model)
 
     def forward(self, trg, e_outputs, src_mask, trg_mask):
@@ -46,10 +46,10 @@ class Decoder(nn.Module):
 
 class Transformer(nn.Module):
     def __init__(self, src_vocab_size, trg_vocab_size, d_model, N, heads,
-                 dropout, max_seq_len):
+                 dropout, max_seq_len, d_ff):
         super().__init__()
-        self.encoder = Encoder(src_vocab_size, d_model, N, heads, dropout, max_seq_len)
-        self.decoder = Decoder(trg_vocab_size, d_model, N, heads, dropout, max_seq_len)
+        self.encoder = Encoder(src_vocab_size, d_model, N, heads, dropout, max_seq_len, d_ff)
+        self.decoder = Decoder(trg_vocab_size, d_model, N, heads, dropout, max_seq_len, d_ff)
         self.linear = nn.Linear(d_model, trg_vocab_size)
 
     def forward(self, src, trg, src_mask, trg_mask):
@@ -68,7 +68,7 @@ def get_model(opt, vocab_size):
 
     # Initailze the transformer model
     model = Transformer(vocab_size, vocab_size, opt.d_model, opt.n_layers,
-                        opt.heads, opt.dropout, opt.max_seq_len)
+                        opt.heads, opt.dropout, opt.max_seq_len, opt.d_ff)
 
     # if opt.load_weights is not None:
     #     print("loading pretrained weights...")
