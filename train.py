@@ -39,9 +39,9 @@ def main():
     opt = parser.parse_args()
 
     # Check if the device has cuda
-    # opt.device = 0 if opt.no_cuda is False else -1
-    # if opt.device == 0:
-    #     assert torch.cuda.is_available()
+    opt.device = 0 if opt.no_cuda is False else -1
+    if opt.device == 0:
+        assert torch.cuda.is_available()
 
     # Generate the vocabulary from the data
     opt.vocab = GenerateVocab(opt.src_data)

@@ -77,7 +77,7 @@ def get_model(opt, vocab_size):
     #         if p.dim() > 1:
     #             nn.init.xavier_uniform_(p)
     #
-    # if opt.device == 0:
-    #     model = model.cuda()
+    if opt.device == 0:
+        model = model.cuda()
 
     return model
