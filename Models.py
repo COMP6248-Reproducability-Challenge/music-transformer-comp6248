@@ -17,7 +17,7 @@ class Encoder(nn.Module):
         super().__init__()
         self.N = N
         self.embed = Embedder(vocab_size, d_model)
-        self.pe = PositionalEncoder(d_model, dropout=dropout, max_seq_len=max_seq_len)
+        self.pe = PositionalEncoder(d_model, dropout, max_seq_len)
         self.layers = get_clones(EncoderLayer(d_model, heads, dropout), N)
         self.norm = Norm(d_model)
 
@@ -33,7 +33,7 @@ class Decoder(nn.Module):
         super().__init__()
         self.N = N
         self.embed = Embedder(vocab_size, d_model)
-        self.pe = PositionalEncoder(d_model, dropout=dropout, max_seq_len=max_seq_len)
+        self.pe = PositionalEncoder(d_model, dropout, max_seq_len)
         self.layers = get_clones(DecoderLayer(d_model, heads, dropout), N)
         self.norm = Norm(d_model)
 
@@ -45,7 +45,8 @@ class Decoder(nn.Module):
         return self.norm(x)
 
 class Transformer(nn.Module):
-    def __init__(self, src_vocab_size, trg_vocab_size, d_model, N, heads, dropout, max_seq_len):
+    def __init__(self, src_vocab_size, trg_vocab_size, d_model, N, heads,
+                 dropout, max_seq_len):
         super().__init__()
         self.encoder = Encoder(src_vocab_size, d_model, N, heads, dropout, max_seq_len)
         self.decoder = Decoder(trg_vocab_size, d_model, N, heads, dropout, max_seq_len)
@@ -77,7 +78,6 @@ def get_model(opt, vocab_size):
     #         if p.dim() > 1:
     #             nn.init.xavier_uniform_(p)
     #
-    if opt.device == 0:
-        model = model.cuda()
+    model = model.to(opt.device)
 
     return model

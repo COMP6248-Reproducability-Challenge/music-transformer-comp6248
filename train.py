@@ -4,12 +4,26 @@
 # Description: Run this script to train the music-transformer model.
 import argparse
 import torch
-from DataPrep import GenerateVocab, PrepareData
+from DataPrep import GenerateVocab, PrepareData, tensorFromSequence
 from Models import get_model
+from MaskGen import create_masks
 
 def train(model, opt):
     print("training model...")
-    # TODO: Train the model
+    # TODO: Repeat for epochs
+
+    # for i, pair in enumerate(opt.train):
+    pair = opt.train[0]
+    input = tensorFromSequence(pair[0]).to(opt.device)
+    target = tensorFromSequence(pair[1]).to(opt.device)
+
+    # Create mask for both input and target sequences
+    input_mask, target_mask = create_masks(input, target, opt)
+
+    preds = model(input, target, input_mask, target_mask)
+    
+    print(input_mask.shape)
+    print(target_mask.shape)
 
 
 def main():
@@ -38,13 +52,12 @@ def main():
 
     opt = parser.parse_args()
 
-    # Check if the device has cuda
-    opt.device = 0 if opt.no_cuda is False else -1
-    if opt.device == 0:
-        assert torch.cuda.is_available()
+    # Set device to cuda if it is setup, else use cpu
+    opt.device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
     # Generate the vocabulary from the data
     opt.vocab = GenerateVocab(opt.src_data)
+    opt.pad_token = 1
 
     # Setup the dataset for training split
     opt.train = PrepareData(opt.src_data ,'train', int(opt.max_seq_len))

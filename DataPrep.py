@@ -12,7 +12,7 @@ def tensorFromSequence(sequence):
     """
     Generate tensors from the sequence in numpy.
     """
-    output = Variable(torch.tensor(sequence))
+    output = Variable(torch.tensor(sequence)).long()
     return output
 
 
