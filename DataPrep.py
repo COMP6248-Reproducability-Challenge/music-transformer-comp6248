@@ -28,6 +28,11 @@ def PrepareData(npz_file, split='train', L=1024):
     full_data = np.load(npz_file, fix_imports=True, encoding="latin1")
     data = full_data[split]
 
+    # Extract the vocab from file
+    vocab = GenerateVocab(npz_file)
+    # Generate new vocab to map to later
+    new_vocab = np.arange(50)
+
     # Initialize the tokens
     pad_token = np.array([[1]])
     sos_token = np.array([[2]])
@@ -61,6 +66,11 @@ def PrepareData(npz_file, split='train', L=1024):
         input_seq = np.append(input_seq, pad_array,axis=1)
         pad_array = pad_token * np.ones((1,1024-output_seq.shape[1]))
         output_seq = np.append(output_seq, pad_array,axis=1)
+
+        # Map the pitch value to int values below vocab size
+        for i, val in enumerate(vocab):
+            input_seq[input_seq==val] = new_vocab[i]
+            output_seq[output_seq==val] = new_vocab[i]
 
         # Make it into a pair
         pair = [input_seq, output_seq]
