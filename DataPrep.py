@@ -31,7 +31,7 @@ def PrepareData(npz_file, split='train', L=1024):
     # Extract the vocab from file
     vocab = GenerateVocab(npz_file)
     # Generate new vocab to map to later
-    new_vocab = np.arange(50)
+    new_vocab = np.arange(len(vocab))
 
     # Initialize the tokens
     pad_token = np.array([[1]])

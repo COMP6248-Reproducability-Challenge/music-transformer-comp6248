@@ -58,7 +58,10 @@ class Transformer(nn.Module):
         linear_output = self.linear(d_output)
 
         # Add log softmax layer as the top layer
-        output = F.log_softmax(linear_output,dim=2)
+        log_softmax_outputs = F.log_softmax(linear_output,dim=2)
+
+        # Find the small value and take as the output
+        outputs = log_softmax_outputs.argmin(dim=2)
         return output
 
 def get_model(opt, vocab_size):

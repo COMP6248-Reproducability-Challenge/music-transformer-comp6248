@@ -7,6 +7,7 @@ import torch
 from DataPrep import GenerateVocab, PrepareData, tensorFromSequence
 from Models import get_model
 from MaskGen import create_masks
+from Process import IndexToPitch
 
 def train(model, opt):
     print("training model...")
@@ -20,10 +21,11 @@ def train(model, opt):
     # Create mask for both input and target sequences
     input_mask, target_mask = create_masks(input, target, opt)
 
-    preds = model(input, target, input_mask, target_mask)
+    preds_idx = model(input, target, input_mask, target_mask)
+    print(preds.shape)
 
-    print(input_mask.shape)
-    print(target_mask.shape)
+    # Make the index values back to original pitch
+    preds = IndexToPitch(preds_idx, opt.vocab)
 
 
 def main():
