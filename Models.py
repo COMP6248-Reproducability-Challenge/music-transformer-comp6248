@@ -62,7 +62,7 @@ class Transformer(nn.Module):
 
         # Find the small value and take as the output
         outputs = log_softmax_outputs.argmin(dim=2)
-        return output
+        return outputs
 
 def get_model(opt, vocab_size):
     # Ensure the provided arguments are valid

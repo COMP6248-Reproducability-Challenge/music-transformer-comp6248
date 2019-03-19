@@ -22,7 +22,7 @@ def train(model, opt):
     input_mask, target_mask = create_masks(input, target, opt)
 
     preds_idx = model(input, target, input_mask, target_mask)
-    print(preds.shape)
+    print(preds_idx.shape)
 
     # Make the index values back to original pitch
     preds = IndexToPitch(preds_idx, opt.vocab)
