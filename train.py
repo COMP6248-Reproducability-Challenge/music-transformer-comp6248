@@ -7,7 +7,8 @@ import torch
 from DataPrep import GenerateVocab, PrepareData, tensorFromSequence
 from Models import get_model
 from MaskGen import create_masks
-from Process import IndexToPitch
+from Process import IndexToPitch, ProcessModelOutput
+import numpy as np
 
 def train(model, opt):
     print("training model...")
@@ -22,11 +23,20 @@ def train(model, opt):
     input_mask, target_mask = create_masks(input, target, opt)
 
     preds_idx = model(input, target, input_mask, target_mask)
-    print(preds_idx.shape)
+    # print(preds_idx.shape)
 
     # Make the index values back to original pitch
     preds = IndexToPitch(preds_idx, opt.vocab)
+    print(preds.size(1))
+    print(preds[0][:30])
+    print(preds[0][-30:])
 
+    # Process the preds format such that it is the same as our dataset
+    processed = ProcessModelOutput(preds)
+    print(processed.shape)
+
+    # Pickle the processed outputs for magenta later
+    np.save('outputs/train_output', processed)
 
 def main():
     # Add parser to parse in the arguments
@@ -76,4 +86,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # For reproducibility
+    torch.manual_seed(0)
+
     main()
