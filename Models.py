@@ -73,6 +73,10 @@ def get_model(opt, vocab_size):
     model = Transformer(vocab_size, vocab_size, opt.d_model, opt.n_layers,
                         opt.heads, opt.dropout, opt.max_seq_len, opt.d_ff)
 
+    if opt.load_weights is not None:
+        print("loading pretrained weights...")
+        checkpoint = torch.load(f'{opt.load_weights}/model_weights')
+        model.load_state_dict(checkpoint['model_state_dict'])
     # if opt.load_weights is not None:
     #     print("loading pretrained weights...")
     #     model.load_state_dict(torch.load(f'{opt.load_weights}/model_weights'))
