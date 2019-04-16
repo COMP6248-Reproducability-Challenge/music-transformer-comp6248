@@ -153,6 +153,9 @@ def main():
 
     opt = parser.parse_args()
 
+    # Initialize resume option as False
+    opt.resume = False
+
     # Set device to cuda if it is setup, else use cpu
     opt.device = "cuda:2" if torch.cuda.is_available() else "cpu"
 
