@@ -55,14 +55,14 @@ class Transformer(nn.Module):
     def forward(self, src, trg, src_mask, trg_mask):
         e_outputs = self.encoder(src, src_mask)
         d_output = self.decoder(trg, e_outputs, src_mask, trg_mask)
-        linear_output = self.linear(d_output)
+        output = self.linear(d_output)
 
-        # Add log softmax layer as the top layer
-        log_softmax_outputs = F.log_softmax(linear_output,dim=2)
-
-        # Find the small value and take as the output
-        outputs = log_softmax_outputs.argmin(dim=2)
-        return outputs
+        # # Add log softmax layer as the top layer
+        # log_softmax_outputs = F.log_softmax(linear_output,dim=2)
+        #
+        # # Find the small value and take as the output
+        # outputs = log_softmax_outputs.argmin(dim=2)
+        return output
 
 def get_model(opt, vocab_size):
     # Ensure the provided arguments are valid
