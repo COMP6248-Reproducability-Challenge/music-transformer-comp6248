@@ -36,7 +36,7 @@ def train(model, opt):
         model.load_state_dict(checkpoint['model_state_dict'])
         opt.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         step_num_load = checkpoint['step_num']  # to keep track of learning rate
-        
+
     for epoch in range(opt.epochs):
 
         # step_num_load == loaded step_num to pick up from last learning rate
@@ -220,6 +220,7 @@ def promptNextAction(model, opt, epoch, step_num, avg_loss):
                 else:
                     break
             opt.epochs = epochs
+            opt.resume = True
             train(model, opt)
         else:
             print("exiting program...")
