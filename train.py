@@ -31,6 +31,12 @@ def train(model, opt):
         opt.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         step_num_load = checkpoint['step_num']  # to keep track of learning rate
 
+    if opt.resume is True:
+        checkpoint = torch.load('weights/model_weights')
+        model.load_state_dict(checkpoint['model_state_dict'])
+        opt.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        step_num_load = checkpoint['step_num']  # to keep track of learning rate
+        
     for epoch in range(opt.epochs):
 
         # step_num_load == loaded step_num to pick up from last learning rate
