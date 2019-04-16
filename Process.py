@@ -9,7 +9,9 @@ def IndexToPitch(input, vocab):
     Converts the index values from model's output back to pitches from vocab.
     """
     index_vocab = np.arange(len(vocab))
-    output = copy.deepcopy(input)
+    # output = copy.deepcopy(input)
+
+    output = input.clone()
 
     for i, val in reversed(list(enumerate(index_vocab))):
         output[output==val] = vocab[i]
