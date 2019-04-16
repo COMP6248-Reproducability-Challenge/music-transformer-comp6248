@@ -4,12 +4,12 @@ from Sublayers import MultiHeadAttention, Norm
 from PositionalFeedForward import *
 
 class EncoderLayer(nn.Module):
-    def __init__(self, d_model, heads, dropout = 0.1):
+    def __init__(self, d_model, heads, d_ff = 1024, dropout = 0.1):
         super().__init__()
         self.norm_1 = Norm(d_model)  # create normalisation sublayer with size d_model
         self.norm_2 = Norm(d_model)
         self.attn = MultiHeadAttention(heads, d_model)
-        # self.ff =
+        self.ff = FeedForward(d_model, d_ff, dropout)
 
         self.dropout_1 = nn.Dropout(dropout)
         self.dropout_2 = nn.Dropout(dropout)
@@ -24,7 +24,7 @@ class EncoderLayer(nn.Module):
         return x
 
 class DecoderLayer(nn.Module):
-    def __init__(self, d_model, heads, dropout=0.1):
+    def __init__(self, d_model, heads, d_ff = 1024, dropout=0.1):
         super().__init__()
         self.norm_1 = Norm(d_model)
         self.norm_2 = Norm(d_model)
@@ -36,7 +36,7 @@ class DecoderLayer(nn.Module):
 
         self.attn_1 = MultiHeadAttention(heads, d_model)
         self.attn_2 = MultiHeadAttention(heads, d_model)
-        self.ff = FeedForward(d_model).cuda()
+        self.ff = FeedForward(d_model, d_ff, dropout)
     def forward(self, x, e_outputs, src_mask, trg_mask):
         x2 = self.norm_1(x)
         x = x + self.dropout_1(self.attn_1(x2, x2, x2, trg_mask))

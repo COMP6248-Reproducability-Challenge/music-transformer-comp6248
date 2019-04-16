@@ -154,7 +154,6 @@ def main():
     opt.vocab = GenerateVocab(opt.src_data)
     opt.pad_token = 1
 
-
     # Setup the dataset for training split
     opt.train = PrepareData(opt.src_data ,'train', int(opt.max_seq_len))
 

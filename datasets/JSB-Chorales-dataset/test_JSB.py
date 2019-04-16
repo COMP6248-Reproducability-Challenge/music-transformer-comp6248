@@ -19,5 +19,5 @@ print(type(train_data))
 print(train_data[0].shape)
 
 train_data.shape
-
+train_data
 train_data[0]
