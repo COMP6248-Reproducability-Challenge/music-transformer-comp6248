@@ -33,7 +33,9 @@ def train(model, opt):
 
     if opt.resume is True:
         checkpoint = torch.load('weights/model_weights')
-        model.load_state_dict(checkpoint['model_state_dict'])
+
+        # No need to load weights as same model is being trained
+        # model.load_state_dict(checkpoint['model_state_dict'])
         opt.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         step_num_load = checkpoint['step_num']  # to keep track of learning rate
 
