@@ -2,6 +2,138 @@ import torch
 import torch.nn as nn
 import math
 import torch.nn.functional as F
+import numpy as np
+from torch.autograd import Variable
+
+def shape_list(x):
+    """Return list of dims
+    """
+
+    shape = list(x.shape)
+
+    return shape
+
+
+def _relative_position_to_absolute_position_masked(x):
+    """Helper function for dot_product_self_attention_relative
+
+    Rearrange attention logits or weights tensor.
+
+    Dimensions of input represents:
+    [batch, heads, query_position, memory_position - query_position + length - 1]
+
+    Dimensions of output represents:
+    [batch, heads, query_position, memory_position]
+
+    Only works with masked attention.
+
+    Args:
+        x: a Tensor with shape [batch, heads, length, length]
+
+    Returns:
+        a Tensor with shape [batch, heads, length, length]
+    """
+
+    batch, heads, length, _ = shape_list(x)
+    x = torch.pad(x, (0, 0, 0, 0, 0, 0, 1, 0))
+    x = torch.reshape(x, (batch, heads, 1 + length, length))
+    x = x[0:x.shape[0] - 0, 0:x.shape[1] - 0, 1:x.shape[2] - 1, 0:x.shape[3] - 0]
+
+    return x
+
+
+def matmul_with_relative_keys(x, y, heads_share_relative_embedding):
+    if heads_share_relative_embedding:
+        ret = torch.einsum("bhld,md -> bhlm", x, y)
+    else:
+        ret = torch.einsum("bhld,hmd -> bhlm", x, y)
+    return ret
+
+
+def get_relative_embeddings_left(max_relative_position, length, depth,
+                                num_heads,
+                                heads_share_relative_embedding):
+    """Instantiate or retrieve relative embeddings, sliced according to length
+
+    Use for masked case where the relative attention is only looking left
+    Args:
+        max_relative_position: an Integer for the number of entries in the relative
+          embedding, which corresponds to the max relative distance that is
+          considered.
+        length: an Integer, specifies the length of the input sequence for which
+          this relative embedding is retrieved for.
+        depth: an Integer, specifies the depth for relative embeddings.
+        num_heads: an Integer, specifies the number of heads.
+        heads_share_relative_embedding: a Boolean specifying if the relative
+          embedding is shared across heads.
+    """
+
+    initializer_stddev = depth ** -0.5
+    embedding_shape = (max_relative_position, depth)
+
+    relative_embeddings = Variable(torch.from_numpy(np.random.normal(0.0, initializer_stddev, embedding_shape)))
+    pad_length = torch.max(length - max_relative_position, 0)
+    slice_start_position = torch.max(max_relative_position - length, 0)
+
+    if heads_share_relative_embedding:
+        padded_relative_embeddings = F.pad(
+            relative_embeddings,
+            (pad_length, 0, 0, 0))
+    # used_relative_embeddings = tf.slice(
+    #     padded_relative_embedding,
+    #     [start_slice_position, 0], [length, -1])
+        used_relative_embeddings = padded_relative_embeddings[slice_start_position:length,
+                                                0:(padded_relative_embeddings.shape[1] - 0)]
+    else:
+    # padded_relative_embeddings = tf.pad(
+    #     relative_embeddings,
+    #     [[0, 0], [pad_length, 0], [0, 0]])
+    # used_relative_embeddings = tf.slice(
+    #     padded_relative_embeddings,
+    #     [0, start_slice_position, 0], [-1, length, -1])
+        padded_relative_embeddings = F.pad(
+            relative_embeddings,
+            (0, 0, pad_length, 0, 0, 0))
+        used_relative_embeddings = padded_relative_embeddings[
+                                    0:(padded_relative_embeddings.shape[0] - 0),
+                                    slice_start_position:length,
+                                    0:(padded_relative_embeddings.shape[0] - 0)
+                                    ]
+    return used_relative_embeddings
+
+
+def dot_product_self_attention_relative(q,
+                                        k,
+                                        v,
+                                        bias = None,
+                                        max_relative_position = None,
+                                        dropout_rate = 0.0,
+                                        heads_share_relative_embedding = False):
+    if not max_relative_position:
+        raise ValueError("Max relative position (%s) should be > 0 when using "
+                     "relative self attention." % (max_relative_position))
+
+    # Use separate embeddings suitable for keys and values.
+    _, heads, length, depth_k = shape_list(k)
+
+    logits = torch.matmul(q, k.transpore(-2, -1))
+    key_relative_embeddings = get_relative_embeddings_left(
+        max_relative_position, length, depth_k, heads, heads_share_relative_embedding)
+    relative_logits = matmul_with_relative_keys(q, key_relative_embeddings,
+                                                heads_share_relative_embedding)
+    relative_logits = _relative_position_to_absolute_position_masked(relative_logits)
+    logits += relative_logits
+
+    if bias is not None:
+        logits += bias
+
+    weights = F.softmax(logits)
+    # Dropping out the attention links for each of the heads.
+    weights = F.dropout(weights, dropout_rate)
+
+    output = torch.matmul(weights, v)
+
+    return output
 
 
 def attention(q, v, k, d_k, mask = None, dropout = None):
@@ -18,6 +150,7 @@ def attention(q, v, k, d_k, mask = None, dropout = None):
     output = torch.matmul(scores, v)
 
     return output
+
 
 class MultiHeadAttention(nn.Module):
     def __init__(self, heads, d_model, dropout = 0.1):
