@@ -26,18 +26,20 @@ def train(model, opt):
 
     # if load_weights to resume training
     if opt.load_weights is not None:
-        checkpoint = torch.load('weights/model_weights')
+        checkpoint = torch.load('weights/' + opt.weights_name)
         model.load_state_dict(checkpoint['model_state_dict'])
         opt.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         step_num_load = checkpoint['step_num']  # to keep track of learning rate
 
     if opt.resume is True:
-        checkpoint = torch.load('weights/model_weights')
+        checkpoint = torch.load('weights/' + opt.weights_name)
 
-        # No need to load weights as same model is being trained
+        # No need to load weights, as it is the same model being trained
+
         # model.load_state_dict(checkpoint['model_state_dict'])
         opt.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         step_num_load = checkpoint['step_num']  # to keep track of learning rate
+
 
     for epoch in range(opt.epochs):
 
@@ -62,14 +64,16 @@ def train(model, opt):
             pair = batch
             input = tensorFromSequence(pair[0]).to(opt.device)
             target = tensorFromSequence(pair[1]).to(opt.device)
-            trg_input = target[:,:-1]
-
-            ys = target[:, 1:].contiguous().view(-1)
+            # trg_input = target[:,:-1]
+            trg_input = target
+            ys = target[:, 0:].contiguous().view(-1)
 
             # Create mask for both input and target sequences
             input_mask, target_mask = create_masks(input, trg_input, opt)
 
             preds_idx = model(input, trg_input, input_mask, target_mask)
+
+
 
             opt.optimizer.zero_grad()
     #         loss = torch.nn.CrossEntropyLoss(ignore_index = opt.pad_token)
@@ -106,7 +110,7 @@ def train(model, opt):
                 'optimizer_state_dict': opt.optimizer.state_dict(),
                 'loss': avg_loss,
                 'step_num': step_num
-                }, 'weights/model_weights')
+                }, 'weights/' + opt.weights_name)
                 cptime = time.time()
 
         avg_loss = np.mean(total_loss)
@@ -143,7 +147,7 @@ def main():
     parser.add_argument('-d_ff', type=int, default=1024)
     parser.add_argument('-n_layers', type=int, default=5)
     parser.add_argument('-heads', type=int, default=8)
-    parser.add_argument('-dropout', type=int, default=0.1)
+    parser.add_argument('-dropout', type=int, default=0.0)
     parser.add_argument('-batchsize', type=int, default=1)
     parser.add_argument('-max_seq_len', type=int, default=1024)
     parser.add_argument('-printevery', type=int, default=100)
@@ -152,6 +156,8 @@ def main():
     parser.add_argument('-create_valset', action='store_true')
     parser.add_argument('-floyd', action='store_true')
     parser.add_argument('-checkpoint', type=int, default=0)
+    parser.add_argument('-attention_type', type = str, default = 'Baseline')
+    parser.add_argument('-weights_name', type = str, default = 'model_weights')
 
     opt = parser.parse_args()
 
@@ -159,11 +165,12 @@ def main():
     opt.resume = False
 
     # Set device to cuda if it is setup, else use cpu
-    opt.device = "cuda:2" if torch.cuda.is_available() else "cpu"
+    opt.device = "cuda:3" if torch.cuda.is_available() else "cpu"
 
     # Generate the vocabulary from the data
     opt.vocab = GenerateVocab(opt.src_data)
     opt.pad_token = 1
+
 
     # Setup the dataset for training split
     opt.train = PrepareData(opt.src_data ,'train', int(opt.max_seq_len))
@@ -208,7 +215,7 @@ def promptNextAction(model, opt, epoch, step_num, avg_loss):
             'optimizer_state_dict': opt.optimizer.state_dict(),
             'loss': avg_loss,
             'step_num': step_num
-            }, 'weights/model_weights')
+            }, 'weights/' + opt.weights_name)
 
         res = yesno(input("train for more epochs? [y/n] : "))
         if res == 'y':
@@ -226,6 +233,7 @@ def promptNextAction(model, opt, epoch, step_num, avg_loss):
                     break
             opt.epochs = epochs
             opt.resume = True
+
             train(model, opt)
         else:
             print("exiting program...")
