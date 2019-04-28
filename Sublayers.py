@@ -35,9 +35,12 @@ def _relative_position_to_absolute_position_masked(x):
     """
 
     batch, heads, length, _ = shape_list(x)
-    x = torch.pad(x, (0, 0, 0, 0, 0, 0, 1, 0))
+
+    x = F.pad(x, (1, 0, 0, 0, 0, 0, 0, 0))
+    # print("After pad: ", x.shape)
     x = torch.reshape(x, (batch, heads, 1 + length, length))
-    x = x[0:x.shape[0] - 0, 0:x.shape[1] - 0, 1:x.shape[2] - 1, 0:x.shape[3] - 0]
+    # print(x.shape)
+    x = x[0:x.shape[0] - 0, 0:x.shape[1] - 0, 1:x.shape[2], 0:x.shape[3] - 0]
 
     return x
 
@@ -69,16 +72,19 @@ def get_relative_embeddings_left(max_relative_position, length, depth,
     """
 
     initializer_stddev = depth ** -0.5
-    embedding_shape = (max_relative_position, depth)
+    if heads_share_relative_embedding:
+        embedding_shape = (max_relative_position, depth)
+    else:
+        embedding_shape = (num_heads, max_relative_position, depth)
 
-    relative_embeddings = Variable(torch.from_numpy(np.random.normal(0.0, initializer_stddev, embedding_shape)))
-    pad_length = torch.max(length - max_relative_position, 0)
-    slice_start_position = torch.max(max_relative_position - length, 0)
+    relative_embeddings = Variable(torch.from_numpy(np.random.normal(0.0, initializer_stddev, embedding_shape).astype('f')))
+    pad_length = max(length - max_relative_position, 0)
+    slice_start_position = max(max_relative_position - length, 0)
 
     if heads_share_relative_embedding:
         padded_relative_embeddings = F.pad(
             relative_embeddings,
-            (pad_length, 0, 0, 0))
+            (0, 0, pad_length, 0))
     # used_relative_embeddings = tf.slice(
     #     padded_relative_embedding,
     #     [start_slice_position, 0], [length, -1])
@@ -91,23 +97,28 @@ def get_relative_embeddings_left(max_relative_position, length, depth,
     # used_relative_embeddings = tf.slice(
     #     padded_relative_embeddings,
     #     [0, start_slice_position, 0], [-1, length, -1])
+        # padded_relative_embeddings = F.pad(
+        #     relative_embeddings,
+        #     (0, 0, pad_length, 0, 0, 0))
         padded_relative_embeddings = F.pad(
             relative_embeddings,
             (0, 0, pad_length, 0, 0, 0))
         used_relative_embeddings = padded_relative_embeddings[
                                     0:(padded_relative_embeddings.shape[0] - 0),
                                     slice_start_position:length,
-                                    0:(padded_relative_embeddings.shape[0] - 0)
+                                    0:(padded_relative_embeddings.shape[2] - 0)
                                     ]
+
     return used_relative_embeddings
 
 
 def dot_product_self_attention_relative(q,
                                         k,
                                         v,
+                                        mask = None,
                                         bias = None,
                                         max_relative_position = None,
-                                        dropout_rate = 0.0,
+                                        dropout = None,
                                         heads_share_relative_embedding = False):
     if not max_relative_position:
         raise ValueError("Max relative position (%s) should be > 0 when using "
@@ -116,20 +127,31 @@ def dot_product_self_attention_relative(q,
     # Use separate embeddings suitable for keys and values.
     _, heads, length, depth_k = shape_list(k)
 
-    logits = torch.matmul(q, k.transpore(-2, -1))
+    logits = torch.matmul(q, k.transpose(-2, -1))
+
+    # print("q is :     ", q.shape)
+
+    if mask is not None:
+        mask = mask.unsqueeze(1) #shape of mask must be broadcastable with shape of underlying tensor
+        logits = logits.masked_fill(mask == 0, -1e9) #masked_fill fills elements of scores with -1e9 where mask == 0
+
+    # print("logits:     ", logits.shape)
+
     key_relative_embeddings = get_relative_embeddings_left(
-        max_relative_position, length, depth_k, heads, heads_share_relative_embedding)
+        max_relative_position, length, depth_k, heads, heads_share_relative_embedding).to(q.device)
     relative_logits = matmul_with_relative_keys(q, key_relative_embeddings,
                                                 heads_share_relative_embedding)
-    relative_logits = _relative_position_to_absolute_position_masked(relative_logits)
+
+    relative_logits = _relative_position_to_absolute_position_masked(relative_logits)  #[1, 8, 1023, 1024]
     logits += relative_logits
 
     if bias is not None:
         logits += bias
 
-    weights = F.softmax(logits)
+    weights = F.softmax(logits, dim = -1)
     # Dropping out the attention links for each of the heads.
-    weights = F.dropout(weights, dropout_rate)
+    if dropout is not None:
+        weights = dropout(weights)
 
     output = torch.matmul(weights, v)
 
@@ -153,12 +175,20 @@ def attention(q, v, k, d_k, mask = None, dropout = None):
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, heads, d_model, dropout = 0.1):
+    def __init__(self, heads, d_model, dropout = 0.0, attention_type = "Baseline",
+                                                        bias = None,
+                                                        max_relative_position = 512,
+                                                        heads_share_relative_embedding = False):
         super().__init__()
 
         self.d_model = d_model
         self.d_k = d_model // heads  #final dimension = d_model/N as we split embedding vec into N heads
         self.h = heads #number of heads
+
+        self.attention_type = attention_type
+        self.bias = bias
+        self.max_relative_position = max_relative_position
+        self.heads_share_relative_embedding = heads_share_relative_embedding
 
         self.q_linear = nn.Linear(d_model, d_model)
         self.v_linear = nn.Linear(d_model, d_model)
@@ -188,7 +218,15 @@ class MultiHeadAttention(nn.Module):
         v = v.transpose(1,2)
 
     # calculate attention using defined attention function
-        scores = attention(q, k, v, self.d_k, mask, self.dropout)
+        if self.attention_type == "Baseline":
+            scores = attention(q, k, v, self.d_k, mask, self.dropout)
+
+        elif self.attention_type == "dot_product_self_attention_relative":
+            scores = dot_product_self_attention_relative(q, k, v, mask,
+                                                                    self.bias,
+                                                                    self.max_relative_position,
+                                                                    self.dropout,
+                                                                    self.heads_share_relative_embedding)
 
         #concatenate heads and put through final linear layer
         concat = scores.transpose(1,2).contiguous().view(bs, -1, self.d_model)
