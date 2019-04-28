@@ -55,7 +55,8 @@ def matmul_with_relative_keys(x, y, heads_share_relative_embedding):
 
 def get_relative_embeddings_left(max_relative_position, length, depth,
                                 num_heads,
-                                heads_share_relative_embedding):
+                                heads_share_relative_embedding,
+                                relative_embeddings =  None):
     """Instantiate or retrieve relative embeddings, sliced according to length
 
     Use for masked case where the relative attention is only looking left
@@ -77,7 +78,9 @@ def get_relative_embeddings_left(max_relative_position, length, depth,
     else:
         embedding_shape = (num_heads, max_relative_position, depth)
 
-    relative_embeddings = Variable(torch.from_numpy(np.random.normal(0.0, initializer_stddev, embedding_shape).astype('f')))
+    if relative_embeddings is None:
+        relative_embeddings = Variable(torch.from_numpy(np.random.normal(0.0, initializer_stddev, embedding_shape).astype('f')))
+
     pad_length = max(length - max_relative_position, 0)
     slice_start_position = max(max_relative_position - length, 0)
 
@@ -109,7 +112,7 @@ def get_relative_embeddings_left(max_relative_position, length, depth,
                                     0:(padded_relative_embeddings.shape[2] - 0)
                                     ]
 
-    return used_relative_embeddings
+    return used_relative_embeddings, relative_embeddings
 
 
 def dot_product_self_attention_relative(q,
@@ -119,7 +122,8 @@ def dot_product_self_attention_relative(q,
                                         bias = None,
                                         max_relative_position = None,
                                         dropout = None,
-                                        heads_share_relative_embedding = False):
+                                        heads_share_relative_embedding = False,
+                                        relative_embeddings = None):
     if not max_relative_position:
         raise ValueError("Max relative position (%s) should be > 0 when using "
                      "relative self attention." % (max_relative_position))
@@ -137,8 +141,8 @@ def dot_product_self_attention_relative(q,
 
     # print("logits:     ", logits.shape)
 
-    key_relative_embeddings = get_relative_embeddings_left(
-        max_relative_position, length, depth_k, heads, heads_share_relative_embedding).to(q.device)
+    key_relative_embeddings, relative_embeddings = get_relative_embeddings_left(
+        max_relative_position, length, depth_k, heads, heads_share_relative_embedding, relative_embeddings).to(q.device)
     relative_logits = matmul_with_relative_keys(q, key_relative_embeddings,
                                                 heads_share_relative_embedding)
 
@@ -189,6 +193,7 @@ class MultiHeadAttention(nn.Module):
         self.bias = bias
         self.max_relative_position = max_relative_position
         self.heads_share_relative_embedding = heads_share_relative_embedding
+        self.relative_embeddings = None
 
         self.q_linear = nn.Linear(d_model, d_model)
         self.v_linear = nn.Linear(d_model, d_model)
@@ -222,11 +227,12 @@ class MultiHeadAttention(nn.Module):
             scores = attention(q, k, v, self.d_k, mask, self.dropout)
 
         elif self.attention_type == "dot_product_self_attention_relative":
-            scores = dot_product_self_attention_relative(q, k, v, mask,
+            scores, self.relative_embeddings = dot_product_self_attention_relative(q, k, v, mask,
                                                                     self.bias,
                                                                     self.max_relative_position,
                                                                     self.dropout,
-                                                                    self.heads_share_relative_embedding)
+                                                                    self.heads_share_relative_embedding,
+                                                                    self.relative_embeddings)
 
         #concatenate heads and put through final linear layer
         concat = scores.transpose(1,2).contiguous().view(bs, -1, self.d_model)
