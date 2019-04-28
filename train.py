@@ -142,7 +142,7 @@ def main():
     parser.add_argument('-trg_lang', required=False)
     parser.add_argument('-no_cuda', action='store_true')
     parser.add_argument('-SGDR', action='store_true')
-    parser.add_argument('-epochs', type=int, default=10)
+    parser.add_argument('-epochs', type=int, default=1)
     parser.add_argument('-d_model', type=int, default=256)
     parser.add_argument('-d_ff', type=int, default=1024)
     parser.add_argument('-n_layers', type=int, default=5)
@@ -158,7 +158,7 @@ def main():
     parser.add_argument('-checkpoint', type=int, default=0)
     parser.add_argument('-attention_type', type = str, default = 'Baseline')
     parser.add_argument('-weights_name', type = str, default = 'model_weights')
-
+    parser.add_argument("-concat_pos_sinusoid", type=str2bool, default=False)
     opt = parser.parse_args()
 
     # Initialize resume option as False
@@ -170,7 +170,6 @@ def main():
     # Generate the vocabulary from the data
     opt.vocab = GenerateVocab(opt.src_data)
     opt.pad_token = 1
-
 
     # Setup the dataset for training split
     opt.train = PrepareData(opt.src_data ,'train', int(opt.max_seq_len))
@@ -241,6 +240,13 @@ def promptNextAction(model, opt, epoch, step_num, avg_loss):
 
     # TODO: Evaluate the trained model
 
+def str2bool(v):
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 if __name__ == "__main__":
     # For reproducibility

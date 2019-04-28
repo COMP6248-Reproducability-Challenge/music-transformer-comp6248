@@ -4,7 +4,7 @@
 import torch
 import torch.nn as nn
 from Encode_Decode_Layers import EncoderLayer, DecoderLayer
-from Embedding import Embedder, PositionalEncoder
+from Embedding import Embedder, PositionalEncoder, PositionalEncoderConcat
 from Sublayers import Norm
 import torch.nn.functional as F
 import copy
@@ -13,13 +13,19 @@ def get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
 
 class Encoder(nn.Module):
-    def __init__(self, vocab_size, d_model, N, heads, dropout, max_seq_len, d_ff, attention_type = "Baseline"):
+    def __init__(self, vocab_size, opt):
         super().__init__()
-        self.N = N
-        self.embed = Embedder(vocab_size, d_model)
-        self.pe = PositionalEncoder(d_model, dropout, max_seq_len)
-        self.layers = get_clones(EncoderLayer(d_model, heads, d_ff, dropout, attention_type), N)
-        self.norm = Norm(d_model)
+        self.N = opt.n_layers
+        self.embed = Embedder(vocab_size, opt.d_model)
+        if opt.concat_pos_sinusoid is True:
+            self.pe = PositionalEncoderConcat(opt.d_model, opt.dropout, opt.max_seq_len)
+            self.d_model = 2 * opt.d_model
+        else:
+            self.pe = PositionalEncoder(opt.d_model, opt.dropout, opt.max_seq_len)
+            self.d_model = opt.d_model
+
+        self.layers = get_clones(EncoderLayer(self.d_model, opt.heads, opt.d_ff, opt.dropout, opt.attention_type), opt.n_layers)
+        self.norm = Norm(self.d_model)
 
     def forward(self, src, mask):
         x = self.embed(src)
@@ -29,13 +35,19 @@ class Encoder(nn.Module):
         return self.norm(x)
 
 class Decoder(nn.Module):
-    def __init__(self, vocab_size, d_model, N, heads, dropout, max_seq_len, d_ff, attention_type = "Baseline"):
+    def __init__(self, vocab_size, opt):
         super().__init__()
-        self.N = N
-        self.embed = Embedder(vocab_size, d_model)
-        self.pe = PositionalEncoder(d_model, dropout, max_seq_len)
-        self.layers = get_clones(DecoderLayer(d_model, heads, d_ff, dropout, attention_type), N)
-        self.norm = Norm(d_model)
+        self.N = opt.n_layers
+        self.embed = Embedder(vocab_size, opt.d_model)
+        if opt.concat_pos_sinusoid is True:
+            self.pe = PositionalEncoderConcat(opt.d_model, opt.dropout, opt.max_seq_len)
+            self.d_model = 2 * opt.d_model
+        else:
+            self.pe = PositionalEncoder(opt.d_model, opt.dropout, opt.max_seq_len)
+            self.d_model = opt.d_model
+
+        self.layers = get_clones(DecoderLayer(self.d_model, opt.heads, opt.d_ff, opt.dropout, opt.attention_type), opt.n_layers)
+        self.norm = Norm(self.d_model)
 
     def forward(self, trg, e_outputs, src_mask, trg_mask):
         x = self.embed(trg)
@@ -45,12 +57,16 @@ class Decoder(nn.Module):
         return self.norm(x)
 
 class Transformer(nn.Module):
-    def __init__(self, src_vocab_size, trg_vocab_size, d_model, N, heads,
-                 dropout, max_seq_len, d_ff, attention_type = "Baseline"):
+    def __init__(self, src_vocab_size, trg_vocab_size, opt):
         super().__init__()
-        self.encoder = Encoder(src_vocab_size, d_model, N, heads, dropout, max_seq_len, d_ff, attention_type)
-        self.decoder = Decoder(trg_vocab_size, d_model, N, heads, dropout, max_seq_len, d_ff, attention_type)
-        self.linear = nn.Linear(d_model, trg_vocab_size)
+        self.encoder = Encoder(src_vocab_size, opt)
+        self.decoder = Decoder(trg_vocab_size, opt)
+        if opt.concat_pos_sinusoid is True:
+            self.d_model = 2 * opt.d_model
+        else:
+            self.d_model = opt.d_model
+
+        self.linear = nn.Linear(self.d_model, trg_vocab_size)
 
     def forward(self, src, trg, src_mask, trg_mask):
         e_outputs = self.encoder(src, src_mask)
@@ -72,8 +88,7 @@ def get_model(opt, vocab_size):
     print('Attention type: ' + opt.attention_type)
 
     # Initailze the transformer model
-    model = Transformer(vocab_size, vocab_size, opt.d_model, opt.n_layers,
-                        opt.heads, opt.dropout, opt.max_seq_len, opt.d_ff, opt.attention_type)
+    model = Transformer(vocab_size, vocab_size, opt)
 
     if opt.load_weights is not None:
         print("loading pretrained weights...")
