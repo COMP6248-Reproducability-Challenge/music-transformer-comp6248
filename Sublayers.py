@@ -52,6 +52,53 @@ def matmul_with_relative_keys(x, y, heads_share_relative_embedding):
         ret = torch.einsum("bhld,hmd -> bhlm", x, y)
     return ret
 
+def get_relative_embeddings_pitch_time(max_relative_position, length, depth,
+                                    relative_pitch_embeddings = None,
+                                    relative_time_embeddings = None):
+    """Instantiate or retrieve relative embeddings, sliced according to length
+
+    Use for masked case where the relative attention is only looking left
+    Args:
+        max_relative_position: an Integer for the number of entries in the relative
+          embedding, which corresponds to the max relative distance that is
+          considered.
+        length: an Integer, specifies the length of the input sequence for which
+          this relative embedding is retrieved for.
+        depth: an Integer, specifies the depth for relative embeddings.
+        relative_time_embeddings: relative embeddings for time, if not present instantiates one
+        relative_pitch_embeddings: relative embeddings for pitch, if not present instantiates one
+    """
+    initializer_stddev = depth ** -0.5
+    embedding_shape = (max_relative_position, max_relative_position, depth)
+
+    if relative_time_embeddings is None:
+        relative_time_embeddings = Variable(torch.from_numpy(np.random.normal\
+        (0.0, initializer_stddev, embedding_shape).astype('f')))
+    if relative_pitch_embeddings is None:
+        relative_pitch_embeddings = Variable(torch.from_numpy(np.random.normal\
+        (0.0, initializer_stddev, embedding_shape).astype('f')))
+
+    pad_length = max(length - max_relative_position, 0)
+    slice_start_position = max(max_relative_position - length, 0)
+
+    padded_relative_time_embeddings = F.pad(
+        relative_time_embeddings,
+        (0, 0, pad_length, 0, pad_length, 0))
+    used_relative_time_embeddings = padded_relative_time_embeddings[
+                                slice_start_position:length,
+                                slice_start_position:length,
+                                0:(padded_relative_time_embeddings.shape[2] - 0)
+                                ]
+    padded_relative_pitch_embeddings = F.pad(
+        relative_pitch_embeddings,
+        (0, 0, pad_length, 0, pad_length, 0))
+    used_relative_pitch_embeddings = padded_relative_pitch_embeddings[
+                                slice_start_position:length,
+                                slice_start_position:length,
+                                0:(padded_relative_pitch_embeddings.shape[2] - 0)
+                                ]
+
+    return used_relative_time_embeddings, used_relative_pitch_embeddings  
 
 def get_relative_embeddings_left(max_relative_position, length, depth,
                                 num_heads,
@@ -142,7 +189,10 @@ def dot_product_self_attention_relative(q,
     # print("logits:     ", logits.shape)
 
     key_relative_embeddings, relative_embeddings = get_relative_embeddings_left(
-        max_relative_position, length, depth_k, heads, heads_share_relative_embedding, relative_embeddings).to(q.device)
+        max_relative_position, length, depth_k, heads, heads_share_relative_embedding, relative_embeddings)
+
+    key_relative_embeddings = key_relative_embeddings.to(q.device)
+
     relative_logits = matmul_with_relative_keys(q, key_relative_embeddings,
                                                 heads_share_relative_embedding)
 
