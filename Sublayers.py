@@ -52,9 +52,14 @@ def matmul_with_relative_keys(x, y, heads_share_relative_embedding):
         ret = torch.einsum("bhld,hmd -> bhlm", x, y)
     return ret
 
+def matmul_with_relative_time_pitch(x, y):
+    ret = torch.einsum("bhld,mmd -> bhlm", x, y)
+
+    return ret
+
 def get_relative_embeddings_pitch_time(max_relative_position, length, depth,
-                                    relative_pitch_embeddings = None,
-                                    relative_time_embeddings = None):
+                                    relative_time_embeddings = None,
+                                    relative_pitch_embeddings = None):
     """Instantiate or retrieve relative embeddings, sliced according to length
 
     Use for masked case where the relative attention is only looking left
@@ -98,7 +103,7 @@ def get_relative_embeddings_pitch_time(max_relative_position, length, depth,
                                 0:(padded_relative_pitch_embeddings.shape[2] - 0)
                                 ]
 
-    return used_relative_time_embeddings, used_relative_pitch_embeddings  
+    return used_relative_time_embeddings, used_relative_pitch_embeddings, relative_time_embeddings, relative_pitch_embeddings
 
 def get_relative_embeddings_left(max_relative_position, length, depth,
                                 num_heads,
@@ -170,7 +175,10 @@ def dot_product_self_attention_relative(q,
                                         max_relative_position = None,
                                         dropout = None,
                                         heads_share_relative_embedding = False,
-                                        relative_embeddings = None):
+                                        relative_embeddings = None,
+                                        relative_time_pitch = False,
+                                        relative_time_embeddings = None,
+                                        relative_pitch_embeddings = None):
     if not max_relative_position:
         raise ValueError("Max relative position (%s) should be > 0 when using "
                      "relative self attention." % (max_relative_position))
@@ -197,19 +205,48 @@ def dot_product_self_attention_relative(q,
                                                 heads_share_relative_embedding)
 
     relative_logits = _relative_position_to_absolute_position_masked(relative_logits)  #[1, 8, 1023, 1024]
-    logits += relative_logits
 
-    if bias is not None:
-        logits += bias
+    if relative_time_pitch == True:
+        to_use_time_relative_embeddings, to_use_pitch_relative_embeddings,\
+         relative_time_embeddings, relative_pitch_embeddings \
+         = get_relative_embeddings_pitch_time(max_relative_position, length,
+                                                                    depth_k,
+                                                                    relative_time_embeddings,
+                                                                    relative_pitch_embeddings)
 
-    weights = F.softmax(logits, dim = -1)
-    # Dropping out the attention links for each of the heads.
-    if dropout is not None:
-        weights = dropout(weights)
+        relative_time_pitch_sum = (to_use_time_relative_embeddings + to_use_pitch_relative_embeddings).to(q.device)
+        relative_time_pitch_term = matmul_with_relative_time_pitch(q, relative_time_pitch_sum)
+        relative_logits = relative_logits + relative_time_pitch_term
 
-    output = torch.matmul(weights, v)
+        logits += relative_logits
 
-    return output
+        if bias is not None:
+            logits += bias
+
+        weights = F.softmax(logits, dim = -1)
+        # Dropping out the attention links for each of the heads.
+        if dropout is not None:
+            weights = dropout(weights)
+
+        output = torch.matmul(weights, v)
+
+        return output, relative_embeddings, relative_time_embeddings, relative_pitch_embeddings
+
+    else:
+
+        logits += relative_logits
+
+        if bias is not None:
+            logits += bias
+
+        weights = F.softmax(logits, dim = -1)
+        # Dropping out the attention links for each of the heads.
+        if dropout is not None:
+            weights = dropout(weights)
+
+        output = torch.matmul(weights, v)
+
+        return output, relative_embeddings
 
 
 def attention(q, v, k, d_k, mask = None, dropout = None):
@@ -232,7 +269,8 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, heads, d_model, dropout = 0.0, attention_type = "Baseline",
                                                         bias = None,
                                                         max_relative_position = 512,
-                                                        heads_share_relative_embedding = False):
+                                                        heads_share_relative_embedding = False,
+                                                        relative_time_pitch = False):
         super().__init__()
 
         self.d_model = d_model
@@ -243,7 +281,10 @@ class MultiHeadAttention(nn.Module):
         self.bias = bias
         self.max_relative_position = max_relative_position
         self.heads_share_relative_embedding = heads_share_relative_embedding
+        self.relative_time_pitch = relative_time_pitch
         self.relative_embeddings = None
+        self.relative_time_embeddings = None
+        self.relative_pitch_embeddings = None
 
         self.q_linear = nn.Linear(d_model, d_model)
         self.v_linear = nn.Linear(d_model, d_model)
@@ -277,12 +318,25 @@ class MultiHeadAttention(nn.Module):
             scores = attention(q, k, v, self.d_k, mask, self.dropout)
 
         elif self.attention_type == "dot_product_self_attention_relative":
-            scores, self.relative_embeddings = dot_product_self_attention_relative(q, k, v, mask,
-                                                                    self.bias,
-                                                                    self.max_relative_position,
-                                                                    self.dropout,
-                                                                    self.heads_share_relative_embedding,
-                                                                    self.relative_embeddings)
+            if self.relative_time_pitch == True:
+                scores, self.relative_embeddings,\
+                 self.relative_time_embeddings,\
+                  self.relative_pitch_embeddings = dot_product_self_attention_relative(q, k, v, mask,
+                                                                        self.bias,
+                                                                        self.max_relative_position,
+                                                                        self.dropout,
+                                                                        self.heads_share_relative_embedding,
+                                                                        self.relative_embeddings,
+                                                                        self.relative_time_pitch,
+                                                                        self.relative_time_embeddings,
+                                                                        self.relative_pitch_embeddings)
+            else:
+                scores, self.relative_embeddings = dot_product_self_attention_relative(q, k, v, mask,
+                                                                        self.bias,
+                                                                        self.max_relative_position,
+                                                                        self.dropout,
+                                                                        self.heads_share_relative_embedding,
+                                                                        self.relative_embeddings)
 
         #concatenate heads and put through final linear layer
         concat = scores.transpose(1,2).contiguous().view(bs, -1, self.d_model)
