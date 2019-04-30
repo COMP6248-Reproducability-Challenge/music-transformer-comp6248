@@ -1,6 +1,5 @@
 # Filename: train.py
 # Date Created: 08-Mar-2019 11:48:49 pm
-# Author: zckoh
 # Description: Run this script to train the music-transformer model.
 import argparse
 import torch
@@ -15,7 +14,6 @@ import os
 
 def train(model, opt):
     print("training model...")
-    # TODO: Repeat for epochs
     model.train()
     start = time.time()
     warmup_steps = 4000
@@ -35,32 +33,27 @@ def train(model, opt):
         checkpoint = torch.load('weights/' + opt.weights_name)
 
         # No need to load weights, as it is the same model being trained
-
         # model.load_state_dict(checkpoint['model_state_dict'])
+
         opt.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         step_num_load = checkpoint['step_num']  # to keep track of learning rate
 
-
     for epoch in range(opt.epochs):
-
         # step_num_load == loaded step_num to pick up from last learning rate
         step_num = step_num_load + time.time() - start
 
         # learning rate defined in Attention is All You Need Paper
         opt.lr = (opt.d_model ** (-0.5)) * (min(step_num ** (-0.5), step_num * warmup_steps ** (-1.5)))
 
-
         # Vary learning rate based on step numbers (each note consider a step)
         opt.optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr, betas=(0.9, 0.98), eps=1e-9)
 
-
         total_loss = []
         if opt.floyd is False:
-            print("   %dm: epoch %d [%s]  %d%%  loss = %s" %\
+            print("   %dm: epoch %d [%s]  %d%%  training loss = %s" %\
             ((time.time() - start)//60, epoch + 1, "".join(' '*20), 0, '...'), end='\r')
 
         for i, batch in enumerate(opt.train):
-
             pair = batch
             input = tensorFromSequence(pair[0]).to(opt.device)
             target = tensorFromSequence(pair[1]).to(opt.device)
@@ -73,33 +66,22 @@ def train(model, opt):
 
             preds_idx = model(input, trg_input, input_mask, target_mask)
 
-
-
             opt.optimizer.zero_grad()
-    #         loss = torch.nn.CrossEntropyLoss(ignore_index = opt.pad_token)
             loss = F.cross_entropy(preds_idx.contiguous().view(preds_idx.size(-1), -1).transpose(0,1), ys, \
                                    ignore_index = opt.pad_token)
-    #         loss(preds_idx.contiguous().view(preds_idx.size(-1), -1).transpose(0,1), ys)
             loss.backward()
             opt.optimizer.step()
-
-    #         if opt.SGDR == True:
-    #             opt.sched.step()
-
-    #         total_loss += loss.item()
-
             total_loss.append(loss.item())
 
             if (i + 1) % opt.printevery == 0:
                 p = int(100 * (i + 1) / get_len(opt.train))
                 avg_loss = np.mean(total_loss)
                 if opt.floyd is False:
-                    print("   %dm: epoch %d [%s%s]  %d%%  loss = %.3f" %\
+                    print("   %dm: epoch %d [%s%s]  %d%%  training loss = %.3f" %\
                     ((time.time() - start)//60, epoch + 1, "".join('#'*(p//5)), "".join(' '*(20-(p//5))), p, avg_loss), end ='\r')
                 else:
-                    print("   %dm: epoch %d [%s%s]  %d%%  loss = %.3f" %\
+                    print("   %dm: epoch %d [%s%s]  %d%%  training loss = %.3f" %\
                     ((time.time() - start)//60, epoch + 1, "".join('#'*(p//5)), "".join(' '*(20-(p//5))), p, avg_loss))
-    #             total_loss = 0
 
             # checkpoint in terms of minutes reached, then save weights, and other information
             if opt.checkpoint > 0 and ((time.time()-cptime)//60) // opt.checkpoint >= 1:
@@ -115,8 +97,26 @@ def train(model, opt):
 
         avg_loss = np.mean(total_loss)
 
-        print("%dm: epoch %d [%s%s]  %d%%  loss = %.3f\nepoch %d complete, loss = %.03f" %\
-        ((time.time() - start)//60, epoch + 1, "".join('#'*(100//5)), "".join(' '*(20-(100//5))), 100, avg_loss, epoch + 1, avg_loss))
+        # Validation step
+        total_validate_loss = []
+
+        for i, batch in enumerate(opt.valid):
+            pair = batch
+            input = tensorFromSequence(pair[0]).to(opt.device)
+            target = tensorFromSequence(pair[1]).to(opt.device)
+            trg_input = target
+            ys = target[:, 0:].contiguous().view(-1)
+
+            input_mask, target_mask = create_masks(input, trg_input, opt)
+            preds_validate = model(input, trg_input, input_mask, target_mask)
+
+            validate_loss = F.cross_entropy(preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1), ys, \
+                                   ignore_index = opt.pad_token)
+            total_validate_loss.append(validate_loss.item())
+        avg_validate_loss = np.mean(total_validate_loss)
+
+        print("%dm: epoch %d [%s%s]  %d%%  training loss = %.3f\nepoch %d complete, training loss = %.03f, validation loss = %.03f" %\
+        ((time.time() - start)//60, epoch + 1, "".join('#'*(100//5)), "".join(' '*(20-(100//5))), 100, avg_loss, epoch + 1, avg_loss, avg_validate_loss))
 
     return epoch, avg_loss, step_num
 
@@ -171,18 +171,20 @@ def main():
     opt.vocab = GenerateVocab(opt.src_data)
     opt.pad_token = 1
 
-    # Setup the dataset for training split
+    # Setup the dataset for training split and validation split
     opt.train = PrepareData(opt.src_data ,'train', int(opt.max_seq_len))
+    opt.valid = PrepareData(opt.src_data ,'valid', int(opt.max_seq_len))
 
     # Create the model using the arguments and the vocab size
     model = get_model(opt, len(opt.vocab))
 
-    # TODO: Set up optimizer for training
+    # Set up optimizer for training
     opt.optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr, betas=(0.9, 0.98), eps=1e-9)
 
-    # Train the model
-    step_num = 0 # step_num is based on time, which is used to calculate learning rate
+    # step_num is based on time, which is used to calculate learning rate
+    step_num = 0
 
+    # Train the model
     avg_loss, epoch, step_num = train(model, opt)
 
     if opt.floyd is False:
