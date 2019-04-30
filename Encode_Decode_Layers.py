@@ -17,11 +17,10 @@ class EncoderLayer(nn.Module):
         self.dropout_2 = nn.Dropout(dropout)
 
     def forward(self, x, mask):
-        z = self.dropout_1(self.attn(x, x, x, mask))  # attention layer 1 with dropout_1
-        x = self.norm_1(x + z)  # add and normalise
-
-        z = self.dropout_2(self.ff(x))  # attention layer 2 with dropout_2
-        x = self.norm_2(x + z)
+        x2 = self.norm_1(x)
+        x = x + self.dropout_1(self.attn(x2,x2,x2,mask))
+        x2 = self.norm_2(x)
+        x = x + self.dropout_2(self.ff(x2))
         return x
 
 class DecoderLayer(nn.Module):
@@ -40,17 +39,17 @@ class DecoderLayer(nn.Module):
         self.attn_2 = MultiHeadAttention(heads, d_model, attention_type = self.attention_type)
         self.ff = FeedForward(d_model, d_ff, dropout)
     def forward(self, x, e_outputs, src_mask, trg_mask):
-        # x2 = self.norm_1(x)
-        # x = x + self.dropout_1(self.attn_1(x2, x2, x2, trg_mask))
-        # x2 = self.norm_2(x)
-        # x = x + self.dropout_2(self.attn_2(x2, e_outputs, e_outputs,
-        # src_mask))
-        # x2 = self.norm_3(x)
-        # x = x + self.dropout_3(self.ff(x2))
+        x2 = self.norm_1(x)
+        x = x + self.dropout_1(self.attn_1(x2, x2, x2, trg_mask))
+        x2 = self.norm_2(x)
+        x = x + self.dropout_2(self.attn_2(x2, e_outputs, e_outputs,
+        src_mask))
+        x2 = self.norm_3(x)
+        x = x + self.dropout_3(self.ff(x2))
 
-        x2 = self.norm_1(x + self.dropout_1(self.attn_1(x, x, x, trg_mask)))
-        x2 = self.norm_2(x2 + self.dropout_2(self.attn_2(x2, e_outputs, e_outputs, src_mask)))
-        x2 = self.norm_3(x2 + self.dropout_3(self.ff(x2)))
+        # x2 = self.norm_1(x + self.dropout_1(self.attn_1(x, x, x, trg_mask)))
+        # x2 = self.norm_2(x2 + self.dropout_2(self.attn_2(x2, e_outputs, e_outputs, src_mask)))
+        # x2 = self.norm_3(x2 + self.dropout_3(self.ff(x2)))
 
         return x
 # We can then build a convenient cloning function that can generate multiple layers:

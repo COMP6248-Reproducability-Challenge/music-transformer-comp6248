@@ -147,7 +147,7 @@ def main():
     parser.add_argument('-d_ff', type=int, default=1024)
     parser.add_argument('-n_layers', type=int, default=5)
     parser.add_argument('-heads', type=int, default=8)
-    parser.add_argument('-dropout', type=int, default=0.0)
+    parser.add_argument('-dropout', type=float, default=0.1)
     parser.add_argument('-batchsize', type=int, default=1)
     parser.add_argument('-max_seq_len', type=int, default=1024)
     parser.add_argument('-printevery', type=int, default=100)
@@ -165,7 +165,7 @@ def main():
     opt.resume = False
 
     # Set device to cuda if it is setup, else use cpu
-    opt.device = "cuda:3" if torch.cuda.is_available() else "cpu"
+    opt.device = "cuda:2" if torch.cuda.is_available() else "cpu"
 
     # Generate the vocabulary from the data
     opt.vocab = GenerateVocab(opt.src_data)
