@@ -24,7 +24,17 @@ class Encoder(nn.Module):
             self.pe = PositionalEncoder(opt.d_model, opt.dropout, opt.max_seq_len)
             self.d_model = opt.d_model
 
-        self.layers = get_clones(EncoderLayer(self.d_model, opt.heads, opt.d_ff, opt.dropout, opt.attention_type), opt.n_layers)
+        if opt.relative_time_pitch is True:
+            self.layers = get_clones(EncoderLayer(self.d_model, opt.heads, opt.d_ff, \
+                                                opt.dropout, opt.attention_type, \
+                                                opt.relative_time_pitch), opt.n_layers)
+            self.layers = self.layers.insert(0, copy.deepcopy(EncoderLayer(self.d_model, opt.heads, opt.d_ff, \
+                                                opt.dropout, opt.attention_type, \
+                                                relative_time_pitch = False)))
+        else:
+            self.layers = get_clones(EncoderLayer(self.d_model, opt.heads, opt.d_ff, \
+                                                opt.dropout, opt.attention_type, \
+                                                opt.relative_time_pitch), opt.n_layers)
         self.norm = Norm(self.d_model)
 
     def forward(self, src, mask):
@@ -46,7 +56,18 @@ class Decoder(nn.Module):
             self.pe = PositionalEncoder(opt.d_model, opt.dropout, opt.max_seq_len)
             self.d_model = opt.d_model
 
-        self.layers = get_clones(DecoderLayer(self.d_model, opt.heads, opt.d_ff, opt.dropout, opt.attention_type), opt.n_layers)
+        if opt.relative_time_pitch is True:
+            self.layers = get_clones(DecoderLayer(self.d_model, opt.heads, opt.d_ff, \
+                                                opt.dropout, opt.attention_type, \
+                                                opt.relative_time_pitch), opt.n_layers-1)
+            self.layers = self.layers.insert(0, copy.deepcopy(DecoderLayer(self.d_model, opt.heads, opt.d_ff, \
+                                                opt.dropout, opt.attention_type, \
+                                                relative_time_pitch = False)))
+
+        else:
+            self.layers = get_clones(DecoderLayer(self.d_model, opt.heads, opt.d_ff, \
+                                                opt.dropout, opt.attention_type, \
+                                                opt.relative_time_pitch), opt.n_layers)
         self.norm = Norm(self.d_model)
 
     def forward(self, trg, e_outputs, src_mask, trg_mask):
