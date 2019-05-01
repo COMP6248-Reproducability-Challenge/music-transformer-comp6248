@@ -14,7 +14,6 @@ import os
 
 def train(model, opt):
     print("training model...")
-    model.train()
     start = time.time()
     warmup_steps = 4000
     step_num_load = 0
@@ -39,6 +38,7 @@ def train(model, opt):
         step_num_load = checkpoint['step_num']  # to keep track of learning rate
 
     for epoch in range(opt.epochs):
+        model.train()
         # step_num_load == loaded step_num to pick up from last learning rate
         step_num = step_num_load + time.time() - start
 
@@ -98,6 +98,7 @@ def train(model, opt):
         avg_loss = np.mean(total_loss)
 
         # Validation step
+        model.eval()
         total_validate_loss = []
 
         for i, batch in enumerate(opt.valid):
@@ -159,13 +160,14 @@ def main():
     parser.add_argument('-attention_type', type = str, default = 'Baseline')
     parser.add_argument('-weights_name', type = str, default = 'model_weights')
     parser.add_argument("-concat_pos_sinusoid", type=str2bool, default=False)
+    parser.add_argument("-relative_time_pitch", type=str2bool, default=False)
     opt = parser.parse_args()
 
     # Initialize resume option as False
     opt.resume = False
 
     # Set device to cuda if it is setup, else use cpu
-    opt.device = "cuda:2" if torch.cuda.is_available() else "cpu"
+    opt.device = "cuda:1" if torch.cuda.is_available() else "cpu"
 
     # Generate the vocabulary from the data
     opt.vocab = GenerateVocab(opt.src_data)
