@@ -40,7 +40,7 @@ def train(model, opt):
     for epoch in range(opt.epochs):
         model.train()
         # step_num_load == loaded step_num to pick up from last learning rate
-        step_num = step_num_load + time.time()*0.01 - start  #one step is 0.6min
+        step_num = step_num_load + time.time() - start  #one step is 0.6min
 
         # learning rate defined in Attention is All You Need Paper
         opt.lr = (opt.d_model ** (-0.5)) * (min(step_num ** (-0.5), step_num * warmup_steps ** (-1.5)))
