@@ -40,13 +40,14 @@ def train(model, opt):
     for epoch in range(opt.epochs):
         model.train()
         # step_num_load == loaded step_num to pick up from last learning rate
-        step_num = step_num_load + time.time() - start
+        step_num = step_num_load + time.time()*0.01 - start  #one step is 0.6min
 
         # learning rate defined in Attention is All You Need Paper
         opt.lr = (opt.d_model ** (-0.5)) * (min(step_num ** (-0.5), step_num * warmup_steps ** (-1.5)))
 
         # Vary learning rate based on step numbers (each note consider a step)
-        opt.optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr, betas=(0.9, 0.98), eps=1e-9)
+        for param_group in opt.optimizer.param_groups:
+            param_group['lr'] = opt.lr
 
         total_loss = []
         if opt.floyd is False:
