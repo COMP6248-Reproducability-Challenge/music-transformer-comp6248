@@ -12,11 +12,33 @@ import torch.nn.functional as F
 import time
 import os
 
+def LabelSmoothing(input, target, smoothing, padding_index):
+    """
+    Args:
+        input: input to loss function, size of [N, Class]
+        target: target input to loss function
+        smoothing: degree of smoothing
+        padding_index: number used for padding, i.e. 1
+
+    Returns:
+        A smoothed target input to loss function
+    """
+    confidence = 1.0 - smoothing
+    true_dist = input.clone()
+    true_dist.fill_(smoothing/ (input.size(1) - 2))
+    true_dist.scatter_(1, target.unsqueeze(1), confidence)
+    mask = torch.nonzero(target == padding_index)
+    if mask.dim() > 0:
+        true_dist.index_fill_(0, mask.squeeze(), 0.0)
+
+    return torch.autograd.Variable(true_dist, requires_grad = False)
+
 def train(model, opt):
     print("training model...")
     start = time.time()
     warmup_steps = 4000
     step_num_load = 0
+    step_num = 1
 
     if opt.checkpoint > 0:
         cptime = time.time()
@@ -37,10 +59,12 @@ def train(model, opt):
         opt.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         step_num_load = checkpoint['step_num']  # to keep track of learning rate
 
+    step_num += step_num_load
+
     for epoch in range(opt.epochs):
         model.train()
         # step_num_load == loaded step_num to pick up from last learning rate
-        step_num = step_num_load + time.time() - start  #one step is 0.6min
+        # step_num = step_num_load + time.time() - start  #one step is 0.6min
 
         # learning rate defined in Attention is All You Need Paper
         opt.lr = (opt.d_model ** (-0.5)) * (min(step_num ** (-0.5), step_num * warmup_steps ** (-1.5)))
@@ -68,10 +92,19 @@ def train(model, opt):
             preds_idx = model(input, trg_input, input_mask, target_mask)
 
             opt.optimizer.zero_grad()
-            loss = F.cross_entropy(preds_idx.contiguous().view(preds_idx.size(-1), -1).transpose(0,1), ys, \
-                                   ignore_index = opt.pad_token)
+
+            loss_input = preds_idx.contiguous().view(preds_idx.size(-1), -1).transpose(0,1)
+            smoothed_target = LabelSmoothing(loss_input, ys, 0.1, 1)
+            # criterion =  torch.nn.KLDivLoss(size_average = False)
+            # loss = criterion(loss_input, smoothed_target)
+            loss = F.binary_cross_entropy_with_logits(loss_input, smoothed_target)
+            # loss = F.cross_entropy(preds_idx.contiguous().view(preds_idx.size(-1), -1).transpose(0,1), ys, \
+            #                        ignore_index = opt.pad_token)
+            # loss = F.nll_loss(F.log_softmax(loss_input), ys, ignore_index = 1)
             loss.backward()
             opt.optimizer.step()
+            step_num += 1
+
             total_loss.append(loss.item())
 
             if (i + 1) % opt.printevery == 0:
@@ -101,21 +134,27 @@ def train(model, opt):
         # Validation step
         model.eval()
         total_validate_loss = []
+        with torch.no_grad():
+            for i, batch in enumerate(opt.valid):
+                pair = batch
+                input = tensorFromSequence(pair[0]).to(opt.device)
+                target = tensorFromSequence(pair[1]).to(opt.device)
+                trg_input = target
+                ys = target[:, 0:].contiguous().view(-1)
 
-        for i, batch in enumerate(opt.valid):
-            pair = batch
-            input = tensorFromSequence(pair[0]).to(opt.device)
-            target = tensorFromSequence(pair[1]).to(opt.device)
-            trg_input = target
-            ys = target[:, 0:].contiguous().view(-1)
+                input_mask, target_mask = create_masks(input, trg_input, opt)
+                preds_validate = model(input, trg_input, input_mask, target_mask)
 
-            input_mask, target_mask = create_masks(input, trg_input, opt)
-            preds_validate = model(input, trg_input, input_mask, target_mask)
-
-            validate_loss = F.cross_entropy(preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1), ys, \
-                                   ignore_index = opt.pad_token)
-            total_validate_loss.append(validate_loss.item())
-        avg_validate_loss = np.mean(total_validate_loss)
+                # criterion = torch.nn.KLDivLoss(size_average = False)
+                validate_input = preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1)
+                smoothed_target_validate = LabelSmoothing(validate_input, ys, 0.0, 1)
+                # validate_loss = criterion(validate_input, smoothed_target_validate)
+                # validate_loss = F.cross_entropy(preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1), ys, \
+                #                        ignore_index = opt.pad_token, size_average = False)
+                # validate_loss = F.nll_loss(F.log_softmax(validate_input), ys, ignore_index = 1)
+                validate_loss = F.binary_cross_entropy_with_logits(validate_input, smoothed_target_validate)
+                total_validate_loss.append(validate_loss.item())
+            avg_validate_loss = np.mean(total_validate_loss)
 
         print("%dm: epoch %d [%s%s]  %d%%  training loss = %.3f\nepoch %d complete, training loss = %.03f, validation loss = %.03f" %\
         ((time.time() - start)//60, epoch + 1, "".join('#'*(100//5)), "".join(' '*(20-(100//5))), 100, avg_loss, epoch + 1, avg_loss, avg_validate_loss))
@@ -168,7 +207,7 @@ def main():
     opt.resume = False
 
     # Set device to cuda if it is setup, else use cpu
-    opt.device = "cuda:1" if torch.cuda.is_available() else "cpu"
+    opt.device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
     # Generate the vocabulary from the data
     opt.vocab = GenerateVocab(opt.src_data)
