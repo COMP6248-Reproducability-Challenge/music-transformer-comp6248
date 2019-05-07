@@ -12,6 +12,12 @@ import torch.nn.functional as F
 import time
 import os
 
+def count_nonpad_tokens(target, padding_index):
+    nonpads = (target != padding_index).squeeze()
+    ntokens = torch.sum(nonpads)
+    return ntokens
+
+
 def LabelSmoothing(input, target, smoothing, padding_index):
     """
     Args:
@@ -39,16 +45,17 @@ def train(model, opt):
     warmup_steps = 4000
     step_num_load = 0
     step_num = 1
-
+    epoch_load = 0
     if opt.checkpoint > 0:
         cptime = time.time()
 
     # if load_weights to resume training
     if opt.load_weights is not None:
-        checkpoint = torch.load('weights/' + opt.weights_name)
+        checkpoint = torch.load('weights/' + opt.weights_name, map_location = 'cpu')
         model.load_state_dict(checkpoint['model_state_dict'])
         opt.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         step_num_load = checkpoint['step_num']  # to keep track of learning rate
+        epoch_load = checkpoint['epoch']
 
     if opt.resume is True:
         checkpoint = torch.load('weights/' + opt.weights_name)
@@ -58,8 +65,9 @@ def train(model, opt):
 
         opt.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         step_num_load = checkpoint['step_num']  # to keep track of learning rate
-
+        epoch_load = checkpoint['epoch']
     step_num += step_num_load
+    epoch_load += epoch_load
 
     for epoch in range(opt.epochs):
         model.train()
@@ -76,7 +84,7 @@ def train(model, opt):
         total_loss = []
         if opt.floyd is False:
             print("   %dm: epoch %d [%s]  %d%%  training loss = %s" %\
-            ((time.time() - start)//60, epoch + 1, "".join(' '*20), 0, '...'), end='\r')
+            ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join(' '*20), 0, '...'), end='\r')
 
         for i, batch in enumerate(opt.train):
             pair = batch
@@ -95,11 +103,12 @@ def train(model, opt):
 
             loss_input = preds_idx.contiguous().view(preds_idx.size(-1), -1).transpose(0,1)
             smoothed_target = LabelSmoothing(loss_input, ys, 0.1, 1)
-            # criterion =  torch.nn.KLDivLoss(size_average = False)
-            # loss = criterion(loss_input, smoothed_target)
-            loss = F.binary_cross_entropy_with_logits(loss_input, smoothed_target)
-            # loss = F.cross_entropy(preds_idx.contiguous().view(preds_idx.size(-1), -1).transpose(0,1), ys, \
-            #                        ignore_index = opt.pad_token)
+            criterion =  torch.nn.KLDivLoss(size_average = False)
+            # loss = criterion(loss_input, smoothed_target)/ (count_nonpad_tokens(ys, 1))
+            # print(count_nonpad_tokens(ys, 1))
+            # loss = F.binary_cross_entropy_with_logits(loss_input, smoothed_target, size_average = False) / (count_nonpad_tokens(ys, 1))
+            loss = F.cross_entropy(preds_idx.contiguous().view(preds_idx.size(-1), -1).transpose(0,1), ys, \
+                                   ignore_index = opt.pad_token, size_average = False) / (count_nonpad_tokens(ys,1))
             # loss = F.nll_loss(F.log_softmax(loss_input), ys, ignore_index = 1)
             loss.backward()
             opt.optimizer.step()
@@ -112,10 +121,10 @@ def train(model, opt):
                 avg_loss = np.mean(total_loss)
                 if opt.floyd is False:
                     print("   %dm: epoch %d [%s%s]  %d%%  training loss = %.3f" %\
-                    ((time.time() - start)//60, epoch + 1, "".join('#'*(p//5)), "".join(' '*(20-(p//5))), p, avg_loss), end ='\r')
+                    ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join('#'*(p//5)), "".join(' '*(20-(p//5))), p, avg_loss), end ='\r')
                 else:
                     print("   %dm: epoch %d [%s%s]  %d%%  training loss = %.3f" %\
-                    ((time.time() - start)//60, epoch + 1, "".join('#'*(p//5)), "".join(' '*(20-(p//5))), p, avg_loss))
+                    ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join('#'*(p//5)), "".join(' '*(20-(p//5))), p, avg_loss))
 
             # checkpoint in terms of minutes reached, then save weights, and other information
             if opt.checkpoint > 0 and ((time.time()-cptime)//60) // opt.checkpoint >= 1:
@@ -145,19 +154,19 @@ def train(model, opt):
                 input_mask, target_mask = create_masks(input, trg_input, opt)
                 preds_validate = model(input, trg_input, input_mask, target_mask)
 
-                # criterion = torch.nn.KLDivLoss(size_average = False)
+                criterion = torch.nn.KLDivLoss(size_average = False)
                 validate_input = preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1)
                 smoothed_target_validate = LabelSmoothing(validate_input, ys, 0.0, 1)
-                # validate_loss = criterion(validate_input, smoothed_target_validate)
-                # validate_loss = F.cross_entropy(preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1), ys, \
-                #                        ignore_index = opt.pad_token, size_average = False)
+                validate_loss = criterion(validate_input, smoothed_target_validate)/ (count_nonpad_tokens(ys, 1))
+                validate_loss = F.cross_entropy(preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1), ys, \
+                                       ignore_index = opt.pad_token, size_average = False) / (count_nonpad_tokens(ys, 1))
                 # validate_loss = F.nll_loss(F.log_softmax(validate_input), ys, ignore_index = 1)
-                validate_loss = F.binary_cross_entropy_with_logits(validate_input, smoothed_target_validate)
+                # validate_loss = F.binary_cross_entropy_with_logits(validate_input, smoothed_target_validate, size_average = False) / (count_nonpad_tokens(ys, 1))
                 total_validate_loss.append(validate_loss.item())
             avg_validate_loss = np.mean(total_validate_loss)
 
         print("%dm: epoch %d [%s%s]  %d%%  training loss = %.3f\nepoch %d complete, training loss = %.03f, validation loss = %.03f" %\
-        ((time.time() - start)//60, epoch + 1, "".join('#'*(100//5)), "".join(' '*(20-(100//5))), 100, avg_loss, epoch + 1, avg_loss, avg_validate_loss))
+        ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join('#'*(100//5)), "".join(' '*(20-(100//5))), 100, avg_loss, (epoch + epoch_load) + 1, avg_loss, avg_validate_loss))
 
     return epoch, avg_loss, step_num
 
