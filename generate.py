@@ -4,40 +4,43 @@ from DataPrep import GenerateVocab, PrepareData, tensorFromSequence
 from Models import get_model
 from MaskGen import create_masks
 from Process import IndexToPitch, ProcessModelOutput, get_len
+from Beam import beam_search
 import numpy as np
 import torch.nn.functional as F
 import time
 import os
 
 def generate(model,opt):
-
     model.eval()
-    pitch = []
 
-    #choose a random pitch within pitch index (2 to ) to start the sequence
-    starting_pitch = torch.randint(2, len(opt.vocab)-1, (1,))
+    # choose 2 random pitches within the vocab (except rest/pad token) to start the sequence
+    starting_pitch = torch.randint(2, len(opt.vocab)-1, (2,)).unsqueeze(1).transpose(0,1).to(opt.device)
 
-    pitch = beam_search(starting_pitch, model, opt)
+    # generate the sequence using beam search
+    generated_seq = beam_search(starting_pitch, model, opt)
 
+    # Make the index values back to original pitch
+    output_seq = IndexToPitch(generated_seq, opt.vocab)
 
+    # Process the output format such that it is the same as our dataset
+    processed = ProcessModelOutput(output_seq)
 
+    return processed
 
 def main():
     # Add parser to parse in the arguments
     parser = argparse.ArgumentParser()
-
     parser.add_argument('-src_data', required=True)
+    parser.add_argument('-load_weights', required=False)
+    parser.add_argument('-device', type=str, default="cuda:1" if torch.cuda.is_available() else "cpu")
+    parser.add_argument('-k', type=int, default=3)
     parser.add_argument('-d_model', type=int, default=256)
     parser.add_argument('-d_ff', type=int, default=1024)
     parser.add_argument('-n_layers', type=int, default=5)
     parser.add_argument('-heads', type=int, default=8)
-    parser.add_argument('-device', type=str, default="cuda:0" if torch.cuda.is_available() else "cpu")
     parser.add_argument('-dropout', type=float, default=0.1)
     parser.add_argument('-batchsize', type=int, default=1)
     parser.add_argument('-max_seq_len', type=int, default=1024)
-
-    parser.add_argument('-load_weights', required=True)
-
     parser.add_argument('-attention_type', type = str, default = 'Baseline')
     parser.add_argument('-weights_name', type = str, default = 'model_weights')
     parser.add_argument("-concat_pos_sinusoid", type=str2bool, default=False)
@@ -51,9 +54,11 @@ def main():
     # Create the model using the arguments and the vocab size
     model = get_model(opt, len(opt.vocab))
 
+    # Now lets generate some music
+    generated_music = generate(model,opt)
 
-    if opt.floyd is False:
-        promptNextAction(model, opt, epoch, step_num, avg_loss)
+    # Ask for next action
+    promptNextAction(model, opt, generated_music)
 
 def yesno(response):
     while True:
@@ -62,52 +67,35 @@ def yesno(response):
         else:
             return response
 
-def promptNextAction(model, opt, epoch, step_num, avg_loss):
-
-    saved_once = 1 if opt.load_weights is not None or opt.checkpoint > 0 else 0
-
-    if opt.load_weights is not None:
-        dst = opt.load_weights
-    if opt.checkpoint > 0:
-        dst = 'weights'
-
+def promptNextAction(model, opt, processed):
     while True:
-        save = yesno(input('training complete, save results? [y/n] : '))
+        save = yesno(input('generate complete, save music? [y/n] : '))
         if save == 'y':
-            print("saving weights...")
-            torch.save({
-            'epoch': epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': opt.optimizer.state_dict(),
-            'loss': avg_loss,
-            'step_num': step_num
-            }, 'weights/' + opt.weights_name)
+            print("saving music...")
+            # Pickle the processed outputs for magenta later
+            np.save('outputs/gen_output%d'%int(time.time()//60), processed)
 
-        res = yesno(input("train for more epochs? [y/n] : "))
+        res = yesno(input("generate again? [y/n] : "))
         if res == 'y':
             while True:
-                #epochs = input("type number of epochs to train for : ")
-                try:
-                #    epochs = int(epochs)
-                except:
-                    print("input not a number")
-                    continue
-                if epochs < 1:
-                    print("epochs must be at least 1")
-                    continue
-                else:
-                    break
-        #    opt.epochs = epochs
-        #    opt.resume = True
+                # Now lets generate some music
+                generated_music = generate(model,opt)
 
-            train(model, opt)
+                # Ask for next action
+                promptNextAction(model, opt, generated_music)
         else:
             print("exiting program...")
             break
 
+def str2bool(v):
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 if __name__ == "__main__":
     # For reproducibility
     torch.manual_seed(0)
-
     main()
