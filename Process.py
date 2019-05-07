@@ -30,14 +30,12 @@ def ProcessModelOutput(model_output):
 
     # Convert tensor to numpy
     output = model_output.cpu().numpy()
-    print("numpy shape:", output.shape)
-    print(output[:30])
 
     # Remove SOS tokens
-    output = output[output!=sos_token]
+    # output = output[output!=sos_token]
 
     # Remove EOS tokens
-    output = output[output!=eos_token]
+    # output = output[output!=eos_token]
 
     # Remove pad tokens
     output = output[output!=pad_token]
