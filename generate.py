@@ -77,12 +77,12 @@ def promptNextAction(model, opt, processed):
 
         res = yesno(input("generate again? [y/n] : "))
         if res == 'y':
-            while True:
-                # Now lets generate some music
-                generated_music = generate(model,opt)
+            # Now lets generate some music
+            generated_music = generate(model,opt)
 
-                # Ask for next action
-                promptNextAction(model, opt, generated_music)
+            # Ask for next action
+            # promptNextAction(model, opt, generated_music)
+            # break
         else:
             print("exiting program...")
             break
