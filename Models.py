@@ -28,7 +28,7 @@ class Encoder(nn.Module):
             self.layers = get_clones(EncoderLayer(self.d_model, opt.heads, opt.d_ff, \
                                                 opt.dropout, opt.attention_type, \
                                                 opt.relative_time_pitch), opt.n_layers)
-            self.layers = self.layers.insert(0, copy.deepcopy(EncoderLayer(self.d_model, opt.heads, opt.d_ff, \
+            self.layers.insert(0, copy.deepcopy(EncoderLayer(self.d_model, opt.heads, opt.d_ff, \
                                                 opt.dropout, opt.attention_type, \
                                                 relative_time_pitch = False)))
         else:
@@ -60,7 +60,7 @@ class Decoder(nn.Module):
             self.layers = get_clones(DecoderLayer(self.d_model, opt.heads, opt.d_ff, \
                                                 opt.dropout, opt.attention_type, \
                                                 opt.relative_time_pitch), opt.n_layers-1)
-            self.layers = self.layers.insert(0, copy.deepcopy(DecoderLayer(self.d_model, opt.heads, opt.d_ff, \
+            self.layers.insert(0, copy.deepcopy(DecoderLayer(self.d_model, opt.heads, opt.d_ff, \
                                                 opt.dropout, opt.attention_type, \
                                                 relative_time_pitch = False)))
 
@@ -113,7 +113,8 @@ def get_model(opt, vocab_size):
 
     if opt.load_weights is not None:
         print("loading pretrained weights...")
-        checkpoint = torch.load(f'{opt.load_weights}/model_weights')
+        # checkpoint = torch.load(f'{opt.load_weights}/' + opt.weights_name)
+        checkpoint = torch.load(f'{opt.load_weights}/' + opt.weights_name, map_location = 'cpu')
         model.load_state_dict(checkpoint['model_state_dict'])
     # if opt.load_weights is not None:
     #     print("loading pretrained weights...")
