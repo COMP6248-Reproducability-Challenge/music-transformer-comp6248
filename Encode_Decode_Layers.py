@@ -4,14 +4,14 @@ from Sublayers import MultiHeadAttention, Norm
 from PositionalFeedForward import *
 
 class EncoderLayer(nn.Module):
-    def __init__(self, d_model, heads, d_ff = 1024, dropout = 0.0, attention_type = "Baseline", relative_time_pitch = False):
+    def __init__(self, d_model, heads, d_ff = 1024, dropout = 0.1, attention_type = "Baseline", relative_time_pitch = False):
         super().__init__()
         self.norm_1 = Norm(d_model)  # create normalisation sublayer with size d_model
         self.norm_2 = Norm(d_model)
         self.attention_type = attention_type
         self.relative_time_pitch = relative_time_pitch
 
-        self.attn = MultiHeadAttention(heads, d_model, attention_type = self.attention_type, \
+        self.attn = MultiHeadAttention(heads, d_model, dropout = dropout, attention_type = self.attention_type, \
                                                         relative_time_pitch = self.relative_time_pitch)
         self.ff = FeedForward(d_model, d_ff, dropout)
 
@@ -26,7 +26,7 @@ class EncoderLayer(nn.Module):
         return x
 
 class DecoderLayer(nn.Module):
-    def __init__(self, d_model, heads, d_ff = 1024, dropout=0.0, attention_type = "Baseline", relative_time_pitch = False):
+    def __init__(self, d_model, heads, d_ff = 1024, dropout=0.1, attention_type = "Baseline", relative_time_pitch = False):
         super().__init__()
         self.norm_1 = Norm(d_model)
         self.norm_2 = Norm(d_model)
@@ -38,9 +38,9 @@ class DecoderLayer(nn.Module):
         self.dropout_2 = nn.Dropout(dropout)
         self.dropout_3 = nn.Dropout(dropout)
 
-        self.attn_1 = MultiHeadAttention(heads, d_model, attention_type = self.attention_type, \
+        self.attn_1 = MultiHeadAttention(heads, d_model, dropout = dropout, attention_type = self.attention_type, \
                                                             relative_time_pitch = self.relative_time_pitch)
-        self.attn_2 = MultiHeadAttention(heads, d_model, attention_type = self.attention_type, \
+        self.attn_2 = MultiHeadAttention(heads, d_model, dropout =dropout, attention_type = self.attention_type, \
                                                             relative_time_pitch = self.relative_time_pitch)
         self.ff = FeedForward(d_model, d_ff, dropout)
     def forward(self, x, e_outputs, src_mask, trg_mask):
