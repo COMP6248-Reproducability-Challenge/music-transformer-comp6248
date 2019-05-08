@@ -12,6 +12,9 @@ import torch.nn.functional as F
 import time
 import os
 
+torch.set_default_dtype(torch.float)
+torch.set_default_tensor_type(torch.FloatTensor)
+
 def count_nonpad_tokens(target, padding_index):
     nonpads = (target != padding_index).squeeze()
     ntokens = torch.sum(nonpads)
@@ -85,11 +88,16 @@ def train(model, opt):
         if opt.floyd is False:
             print("   %dm: epoch %d [%s]  %d%%  training loss = %s" %\
             ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join(' '*20), 0, '...'), end='\r')
-
+        # print('\n')
+        # print(get_len(opt.train))
+        # print(get_len(opt.valid))
         for i, batch in enumerate(opt.train):
             pair = batch
             input = tensorFromSequence(pair[0]).to(opt.device)
             target = tensorFromSequence(pair[1]).to(opt.device)
+            # input = pair[0].to(opt.device)
+            # target = pair[1].to(opt.device)
+
             # trg_input = target[:,:-1]
             trg_input = target
             ys = target[:, 0:].contiguous().view(-1)
@@ -107,9 +115,10 @@ def train(model, opt):
             # loss = criterion(loss_input, smoothed_target)/ (count_nonpad_tokens(ys, 1))
             # print(count_nonpad_tokens(ys, 1))
             # loss = F.binary_cross_entropy_with_logits(loss_input, smoothed_target, size_average = False) / (count_nonpad_tokens(ys, 1))
-            loss = F.cross_entropy(preds_idx.contiguous().view(preds_idx.size(-1), -1).transpose(0,1), ys, \
-                                   ignore_index = opt.pad_token, size_average = False) / (count_nonpad_tokens(ys,1))
-            # loss = F.nll_loss(F.log_softmax(loss_input), ys, ignore_index = 1)
+            # loss = F.cross_entropy(preds_idx.contiguous().view(preds_idx.size(-1), -1).transpose(0,1), ys, \
+            #                        ignore_index = opt.pad_token, size_average = False) / (count_nonpad_tokens(ys,1))
+            loss = F.nll_loss(F.log_softmax(loss_input,dim = 1), ys, ignore_index = 1)
+            # print(F.softmax(loss_input,dim = 1))
             loss.backward()
             opt.optimizer.step()
             step_num += 1
@@ -130,7 +139,7 @@ def train(model, opt):
             if opt.checkpoint > 0 and ((time.time()-cptime)//60) // opt.checkpoint >= 1:
                 print("checkpoint save...")
                 torch.save({
-                'epoch': epoch,
+                'epoch': epoch + epoch_load,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': opt.optimizer.state_dict(),
                 'loss': avg_loss,
@@ -158,9 +167,9 @@ def train(model, opt):
                 validate_input = preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1)
                 smoothed_target_validate = LabelSmoothing(validate_input, ys, 0.0, 1)
                 validate_loss = criterion(validate_input, smoothed_target_validate)/ (count_nonpad_tokens(ys, 1))
-                validate_loss = F.cross_entropy(preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1), ys, \
-                                       ignore_index = opt.pad_token, size_average = False) / (count_nonpad_tokens(ys, 1))
-                # validate_loss = F.nll_loss(F.log_softmax(validate_input), ys, ignore_index = 1)
+                # validate_loss = F.cross_entropy(preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1), ys, \
+                #                        ignore_index = opt.pad_token, size_average = False) / (count_nonpad_tokens(ys, 1))
+                validate_loss = F.nll_loss(F.log_softmax(validate_input, dim = 1), ys, ignore_index = 1)
                 # validate_loss = F.binary_cross_entropy_with_logits(validate_input, smoothed_target_validate, size_average = False) / (count_nonpad_tokens(ys, 1))
                 total_validate_loss.append(validate_loss.item())
             avg_validate_loss = np.mean(total_validate_loss)
@@ -216,7 +225,7 @@ def main():
     opt.resume = False
 
     # Set device to cuda if it is setup, else use cpu
-    opt.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    opt.device = "cuda:3" if torch.cuda.is_available() else "cpu"
 
     # Generate the vocabulary from the data
     opt.vocab = GenerateVocab(opt.src_data)
@@ -229,6 +238,7 @@ def main():
     # Create the model using the arguments and the vocab size
     model = get_model(opt, len(opt.vocab))
 
+    # model = torch.nn.DataParallel(model)
     # Set up optimizer for training
     opt.optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr, betas=(0.9, 0.98), eps=1e-9)
 
