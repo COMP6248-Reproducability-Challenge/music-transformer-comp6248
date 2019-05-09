@@ -11,6 +11,7 @@ import time
 import os
 
 def generate(model,opt):
+    print("generating music using beam search...")
     model.eval()
 
     # choose 2 random pitches within the vocab (except rest/pad token) to start the sequence
@@ -78,11 +79,8 @@ def promptNextAction(model, opt, processed):
         res = yesno(input("generate again? [y/n] : "))
         if res == 'y':
             # Now lets generate some music
-            generated_music = generate(model,opt)
+            processed = generate(model,opt)
 
-            # Ask for next action
-            # promptNextAction(model, opt, generated_music)
-            # break
         else:
             print("exiting program...")
             break

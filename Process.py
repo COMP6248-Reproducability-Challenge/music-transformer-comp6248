@@ -37,8 +37,8 @@ def ProcessModelOutput(model_output):
     # Remove EOS tokens
     # output = output[output!=eos_token]
 
-    # Remove pad tokens
-    output = output[output!=pad_token]
+    # Replace all pad tokens with rest tokens
+    output[output==pad_token] = rest_token
 
     # Change rest tokens to NaN values
     output = np.where(output==rest_token, np.nan, output)
