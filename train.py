@@ -219,6 +219,7 @@ def main():
     parser.add_argument('-weights_name', type = str, default = 'model_weights')
     parser.add_argument("-concat_pos_sinusoid", type=str2bool, default=False)
     parser.add_argument("-relative_time_pitch", type=str2bool, default=False)
+    parser.add_argument("-max_relative_position", type= int, default = 512)
     opt = parser.parse_args()
 
     # Initialize resume option as False
