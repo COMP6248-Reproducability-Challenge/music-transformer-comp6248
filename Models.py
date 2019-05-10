@@ -27,21 +27,26 @@ class Encoder(nn.Module):
         if opt.relative_time_pitch is True:
             self.layers = get_clones(EncoderLayer(self.d_model, opt.heads, opt.d_ff, \
                                                 opt.dropout, opt.attention_type, \
-                                                opt.relative_time_pitch), opt.n_layers)
+                                                opt.relative_time_pitch,
+                                                max_relative_position = opt.max_relative_position),
+                                                opt.n_layers)
             self.layers.insert(0, copy.deepcopy(EncoderLayer(self.d_model, opt.heads, opt.d_ff, \
                                                 opt.dropout, opt.attention_type, \
-                                                relative_time_pitch = False)))
+                                                relative_time_pitch = False,
+                                                max_relative_position = opt.max_relative_position)))
         else:
             self.layers = get_clones(EncoderLayer(self.d_model, opt.heads, opt.d_ff, \
                                                 opt.dropout, opt.attention_type, \
-                                                opt.relative_time_pitch), opt.n_layers)
+                                                opt.relative_time_pitch,
+                                                max_relative_position = opt.max_relative_position),
+                                                opt.n_layers)
         self.norm = Norm(self.d_model)
 
     def forward(self, src, mask):
         x = self.embed(src)
         x = self.pe(x)
         for i in range(self.N):
-            x = self.layers[i](x, mask)
+            x = self.layers[i](x.float(), mask)
         return self.norm(x)
 
 class Decoder(nn.Module):
@@ -59,22 +64,28 @@ class Decoder(nn.Module):
         if opt.relative_time_pitch is True:
             self.layers = get_clones(DecoderLayer(self.d_model, opt.heads, opt.d_ff, \
                                                 opt.dropout, opt.attention_type, \
-                                                opt.relative_time_pitch), opt.n_layers-1)
+                                                opt.relative_time_pitch,
+                                                max_relative_position = opt.max_relative_position),
+                                                opt.n_layers-1)
             self.layers.insert(0, copy.deepcopy(DecoderLayer(self.d_model, opt.heads, opt.d_ff, \
                                                 opt.dropout, opt.attention_type, \
-                                                relative_time_pitch = False)))
+                                                relative_time_pitch = False,
+                                                max_relative_position = opt.max_relative_position)))
 
         else:
             self.layers = get_clones(DecoderLayer(self.d_model, opt.heads, opt.d_ff, \
                                                 opt.dropout, opt.attention_type, \
-                                                opt.relative_time_pitch), opt.n_layers)
+                                                opt.relative_time_pitch,
+                                                max_relative_position = opt.max_relative_position),
+                                                opt.n_layers)
         self.norm = Norm(self.d_model)
 
     def forward(self, trg, e_outputs, src_mask, trg_mask):
         x = self.embed(trg)
         x = self.pe(x)
+        # print(x.shape)
         for i in range(self.N):
-            x = self.layers[i](x, e_outputs, src_mask, trg_mask)
+            x = self.layers[i](x.float(), e_outputs, src_mask, trg_mask)
         return self.norm(x)
 
 class Transformer(nn.Module):
