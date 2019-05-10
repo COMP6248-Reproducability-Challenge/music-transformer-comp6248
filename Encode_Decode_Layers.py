@@ -4,7 +4,7 @@ from Sublayers import MultiHeadAttention, Norm
 from PositionalFeedForward import *
 
 class EncoderLayer(nn.Module):
-    def __init__(self, d_model, heads, d_ff = 1024, dropout = 0.1, attention_type = "Baseline", relative_time_pitch = False):
+    def __init__(self, d_model, heads, d_ff = 1024, dropout = 0.1, attention_type = "Baseline", relative_time_pitch = False, max_relative_position = 512):
         super().__init__()
         self.norm_1 = Norm(d_model)  # create normalisation sublayer with size d_model
         self.norm_2 = Norm(d_model)
@@ -12,7 +12,8 @@ class EncoderLayer(nn.Module):
         self.relative_time_pitch = relative_time_pitch
 
         self.attn = MultiHeadAttention(heads, d_model, dropout = dropout, attention_type = self.attention_type, \
-                                                        relative_time_pitch = self.relative_time_pitch)
+                                                        relative_time_pitch = self.relative_time_pitch,
+                                                        max_relative_position = max_relative_position)
         self.ff = FeedForward(d_model, d_ff, dropout)
 
         self.dropout_1 = nn.Dropout(dropout)
@@ -26,7 +27,7 @@ class EncoderLayer(nn.Module):
         return x
 
 class DecoderLayer(nn.Module):
-    def __init__(self, d_model, heads, d_ff = 1024, dropout=0.1, attention_type = "Baseline", relative_time_pitch = False):
+    def __init__(self, d_model, heads, d_ff = 1024, dropout=0.1, attention_type = "Baseline", relative_time_pitch = False, max_relative_position = 512):
         super().__init__()
         self.norm_1 = Norm(d_model)
         self.norm_2 = Norm(d_model)
@@ -39,9 +40,11 @@ class DecoderLayer(nn.Module):
         self.dropout_3 = nn.Dropout(dropout)
 
         self.attn_1 = MultiHeadAttention(heads, d_model, dropout = dropout, attention_type = self.attention_type, \
-                                                            relative_time_pitch = self.relative_time_pitch)
+                                                            relative_time_pitch = self.relative_time_pitch,
+                                                            max_relative_position = max_relative_position)
         self.attn_2 = MultiHeadAttention(heads, d_model, dropout =dropout, attention_type = self.attention_type, \
-                                                            relative_time_pitch = self.relative_time_pitch)
+                                                            relative_time_pitch = self.relative_time_pitch,
+                                                            max_relative_position = max_relative_position)
         self.ff = FeedForward(d_model, d_ff, dropout)
     def forward(self, x, e_outputs, src_mask, trg_mask):
         x2 = self.norm_1(x)
