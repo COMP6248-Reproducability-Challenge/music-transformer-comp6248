@@ -74,8 +74,6 @@ def train(model, opt):
 
     for epoch in range(opt.epochs):
         model.train()
-        # step_num_load == loaded step_num to pick up from last learning rate
-        # step_num = step_num_load + time.time() - start  #one step is 0.6min
 
         # learning rate defined in Attention is All You Need Paper
         opt.lr = (opt.d_model ** (-0.5)) * (min(step_num ** (-0.5), step_num * warmup_steps ** (-1.5)))
@@ -85,12 +83,9 @@ def train(model, opt):
             param_group['lr'] = opt.lr
 
         total_loss = []
-        if opt.floyd is False:
-            print("   %dm: epoch %d [%s]  %d%%  training loss = %s" %\
-            ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join(' '*20), 0, '...'), end='\r')
-        # print('\n')
-        # print(get_len(opt.train))
-        # print(get_len(opt.valid))
+        print("   %dm: epoch %d [%s]  %d%%  training loss = %s" %\
+        ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join(' '*20), 0, '...'), end='\r')
+
         for i, batch in enumerate(opt.train):
             pair = batch
             input = tensorFromSequence(pair[0]).to(opt.device)
@@ -128,12 +123,9 @@ def train(model, opt):
             if (i + 1) % opt.printevery == 0:
                 p = int(100 * (i + 1) / get_len(opt.train))
                 avg_loss = np.mean(total_loss)
-                if opt.floyd is False:
-                    print("   %dm: epoch %d [%s%s]  %d%%  training loss = %.3f" %\
-                    ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join('#'*(p//5)), "".join(' '*(20-(p//5))), p, avg_loss), end ='\r')
-                else:
-                    print("   %dm: epoch %d [%s%s]  %d%%  training loss = %.3f" %\
-                    ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join('#'*(p//5)), "".join(' '*(20-(p//5))), p, avg_loss))
+
+                print("   %dm: epoch %d [%s%s]  %d%%  training loss = %.3f" %\
+                ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join('#'*(p//5)), "".join(' '*(20-(p//5))), p, avg_loss), end ='\r')
 
             # checkpoint in terms of minutes reached, then save weights, and other information
             if opt.checkpoint > 0 and ((time.time()-cptime)//60) // opt.checkpoint >= 1:
@@ -179,28 +171,11 @@ def train(model, opt):
 
     return epoch, avg_loss, step_num
 
-    #         # Make the index values back to original pitch
-    #         preds = IndexToPitch(preds_idx, opt.vocab)
-    #         print(preds.size(1))
-    #         print(preds[0][:30])
-    #         print(preds[0][-30:])
-
-    #         # Process the preds format such that it is the same as our dataset
-    #         processed = ProcessModelOutput(preds)
-    #         print(processed.shape)
-
-    #         # Pickle the processed outputs for magenta later
-    #         np.save('outputs/train_output', processed)
-
 def main():
     # Add parser to parse in the arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('-src_data', required=False)
-    parser.add_argument('-trg_data', required=False)
-    parser.add_argument('-src_lang', required=False)
-    parser.add_argument('-trg_lang', required=False)
-    parser.add_argument('-no_cuda', action='store_true')
-    parser.add_argument('-SGDR', action='store_true')
+    parser.add_argument('-device', type=str, default="cuda:1" if torch.cuda.is_available() else "cpu")
     parser.add_argument('-epochs', type=int, default=1)
     parser.add_argument('-d_model', type=int, default=256)
     parser.add_argument('-d_ff', type=int, default=1024)
@@ -212,8 +187,6 @@ def main():
     parser.add_argument('-printevery', type=int, default=100)
     parser.add_argument('-lr', type= float, default=0.0001)
     parser.add_argument('-load_weights')
-    parser.add_argument('-create_valset', action='store_true')
-    parser.add_argument('-floyd', action='store_true')
     parser.add_argument('-checkpoint', type=int, default=0)
     parser.add_argument('-attention_type', type = str, default = 'Baseline')
     parser.add_argument('-weights_name', type = str, default = 'model_weights')
@@ -224,9 +197,6 @@ def main():
 
     # Initialize resume option as False
     opt.resume = False
-
-    # Set device to cuda if it is setup, else use cpu
-    opt.device = "cuda:3" if torch.cuda.is_available() else "cpu"
 
     # Generate the vocabulary from the data
     opt.vocab = GenerateVocab(opt.src_data)
@@ -239,7 +209,6 @@ def main():
     # Create the model using the arguments and the vocab size
     model = get_model(opt, len(opt.vocab))
 
-    # model = torch.nn.DataParallel(model)
     # Set up optimizer for training
     opt.optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr, betas=(0.9, 0.98), eps=1e-9)
 
@@ -249,8 +218,7 @@ def main():
     # Train the model
     avg_loss, epoch, step_num = train(model, opt)
 
-    if opt.floyd is False:
-        promptNextAction(model, opt, epoch, step_num, avg_loss)
+    promptNextAction(model, opt, epoch, step_num, avg_loss)
 
 def yesno(response):
     while True:
@@ -302,8 +270,6 @@ def promptNextAction(model, opt, epoch, step_num, avg_loss):
             print("exiting program...")
             break
 
-    # TODO: Evaluate the trained model
-
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
         return True
@@ -315,5 +281,4 @@ def str2bool(v):
 if __name__ == "__main__":
     # For reproducibility
     torch.manual_seed(0)
-
     main()
