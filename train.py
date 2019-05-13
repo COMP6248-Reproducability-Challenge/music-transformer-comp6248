@@ -49,6 +49,10 @@ def train(model, opt):
     step_num_load = 0
     step_num = 1
     epoch_load = 0
+
+    t_loss_per_epoch = []
+    v_loss_per_epoch = []
+
     if opt.checkpoint > 0:
         cptime = time.time()
 
@@ -166,10 +170,14 @@ def train(model, opt):
                 total_validate_loss.append(validate_loss.item())
             avg_validate_loss = np.mean(total_validate_loss)
 
+        # Store the average training & validation loss for each epoch
+        t_loss_per_epoch.append(avg_loss)
+        v_loss_per_epoch.append(avg_validate_loss)
+
         print("%dm: epoch %d [%s%s]  %d%%  training loss = %.3f\nepoch %d complete, training loss = %.03f, validation loss = %.03f" %\
         ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join('#'*(100//5)), "".join(' '*(20-(100//5))), 100, avg_loss, (epoch + epoch_load) + 1, avg_loss, avg_validate_loss))
 
-    return epoch, avg_loss, step_num
+    return epoch, avg_loss, step_num, t_loss_per_epoch, v_loss_per_epoch
 
 def main():
     # Add parser to parse in the arguments
@@ -216,9 +224,9 @@ def main():
     step_num = 0
 
     # Train the model
-    avg_loss, epoch, step_num = train(model, opt)
+    avg_loss, epoch, step_num, t_loss_per_epoch, v_loss_per_epoch = train(model, opt)
 
-    promptNextAction(model, opt, epoch, step_num, avg_loss)
+    promptNextAction(model, opt, epoch, step_num, avg_loss, t_loss_per_epoch, v_loss_per_epoch)
 
 def yesno(response):
     while True:
@@ -227,7 +235,7 @@ def yesno(response):
         else:
             return response
 
-def promptNextAction(model, opt, epoch, step_num, avg_loss):
+def promptNextAction(model, opt, epoch, step_num, avg_loss, t_loss_per_epoch, v_loss_per_epoch):
 
     saved_once = 1 if opt.load_weights is not None or opt.checkpoint > 0 else 0
 
@@ -265,8 +273,18 @@ def promptNextAction(model, opt, epoch, step_num, avg_loss):
             opt.epochs = epochs
             opt.resume = True
 
-            train(model, opt)
+            _, _, _, extra_t_loss, extra_v_loss = train(model, opt)
+            t_loss_per_epoch.extend(extra_t_loss)
+            v_loss_per_epoch.extend(extra_v_loss)
         else:
+            # Convert list into numpy arrays
+            t_loss_per_epoch = np.array(t_loss_per_epoch)
+            v_loss_per_epoch = np.array(v_loss_per_epoch)
+
+            # Save the arrays for plotting later
+            np.save('outputs/t_loss%d'%int(time.time()//60), t_loss_per_epoch)
+            np.save('outputs/v_loss%d'%int(time.time()//60), v_loss_per_epoch)
+
             print("exiting program...")
             break
 
