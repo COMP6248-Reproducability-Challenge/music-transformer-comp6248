@@ -29,7 +29,7 @@ def ProcessModelOutput(model_output):
     eos_token = 3
 
     # Convert tensor to numpy
-    output = model_output.cpu().numpy()
+    output = model_output.cpu().detach().numpy()
 
     # Remove SOS tokens
     # output = output[output!=sos_token]
