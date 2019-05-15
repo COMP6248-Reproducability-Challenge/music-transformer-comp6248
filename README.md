@@ -1,5 +1,5 @@
 # music-transformer-comp6248
-** This re-implementation is meant for the COMP6248 reproducibility challenge. **
+**This re-implementation is meant for the COMP6248 reproducibility challenge.**
 
 Re-implementation of music transformer paper published for ICLR 2019.  
 Link to paper: https://openreview.net/forum?id=rJe4ShAcF7  
@@ -28,13 +28,19 @@ Please read the [report](report.pdf) for more detailed information regarding the
 
 ## Usage
 To train the models, simply run `train.py` and add the arguments accordingly:  
-`python train.py -src_data datasets/JSB-Chorales-dataset/Jsb16thSeparated.npz -epochs 300 -weights_name baselineTF_300epoch -device cuda:2 -checkpoint 10`
+```
+python train.py -src_data datasets/JSB-Chorales-dataset/Jsb16thSeparated.npz -epochs 300 -weights_name baselineTF_300epoch -device cuda:2 -checkpoint 10
+```
 
 To generate music using a trained model, run `generate.py` and add the arguments accordingly:  
-`python generate.py -src_data datasets/JSB-Chorales-dataset/Jsb16thSeparated.npz -load_weights weights -weights_name baselineTF_300epoch -device cuda:1 -k 3`  
+```
+python generate.py -src_data datasets/JSB-Chorales-dataset/Jsb16thSeparated.npz -load_weights weights -weights_name baselineTF_300epoch -device cuda:1 -k 3
+```
 
 To generate the plots for training/validation loss, please use `gen_training_plots.py`:  
-`python gen_training_plots.py -t_loss_file <t_loss_npy_file> -v_loss_file <v_loss_npy_file>`  
+```
+python gen_training_plots.py -t_loss_file <t_loss_npy_file> -v_loss_file <v_loss_npy_file>
+```  
 
 `<t_loss_npy_file>` and `<t_loss_npy_file>` are generated during training and are saved in the `outputs` directory.
 
@@ -50,16 +56,20 @@ The generated sequences can be plotted and listened using this [IPython Notebook
 ## Environment Setup
 1. PyTorch with CUDA-enabled GPUs.
   - Install CUDA 9.0 and CUDNN 7.4.1.5
-  - `conda create -n torch python=3.6`
-  - `conda activate torch`
-  - `conda install pytorch torchvision cuda90 -c pytorch`
-
+  - Then follow these steps:
+  ```
+  conda create -n torch python=3.6
+  conda activate torch`
+  conda install pytorch torchvision cuda90 -c pytorch
+  ```
 
 2. Magenta for plotting and playing the generated notes.  
-Steps for installing on Ubuntu subsystem:
-  + `conda create -n magenta python=3.6`
-  + `conda activate magenta`
-  + `sudo apt-get update`
-  + `sudo apt-get install build-essential libasound2-dev libjack-dev libfluidsynth1 fluid-soundfont-gm`
-  + `pip install --pre python-rtmidi`
-  + `pip install jupyter magenta pyfluidsynth pretty_midi`
+Steps for installing on Ubuntu:
+```
+conda create -n magenta python=3.6
+conda activate magenta
+sudo apt-get update
+sudo apt-get install build-essential libasound2-dev libjack-dev libfluidsynth1 fluid-soundfont-gm
+pip install --pre python-rtmidi
+pip install jupyter magenta pyfluidsynth pretty_midi
+```
