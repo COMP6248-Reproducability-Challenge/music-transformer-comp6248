@@ -74,7 +74,7 @@ def train(model, opt):
         step_num_load = checkpoint['step_num']  # to keep track of learning rate
         epoch_load = checkpoint['epoch']
     step_num += step_num_load
-    epoch_load += epoch_load
+    # epoch_load += epoch_load
 
     for epoch in range(opt.epochs):
         model.train()
@@ -108,15 +108,15 @@ def train(model, opt):
 
             opt.optimizer.zero_grad()
 
-            loss_input = preds_idx.contiguous().view(preds_idx.size(-1), -1).transpose(0,1)
-            smoothed_target = LabelSmoothing(loss_input, ys, 0.1, 1)
-            criterion =  torch.nn.KLDivLoss(size_average = False)
+            # loss_input = preds_idx.contiguous().view(preds_idx.size(-1), -1).transpose(0,1)
+            # smoothed_target = LabelSmoothing(loss_input, ys, 0.1, 1)
+            # criterion =  torch.nn.KLDivLoss(size_average = False)
             # loss = criterion(loss_input, smoothed_target)/ (count_nonpad_tokens(ys, 1))
             # print(count_nonpad_tokens(ys, 1))
             # loss = F.binary_cross_entropy_with_logits(loss_input, smoothed_target, size_average = False) / (count_nonpad_tokens(ys, 1))
-            # loss = F.cross_entropy(preds_idx.contiguous().view(preds_idx.size(-1), -1).transpose(0,1), ys, \
-            #                        ignore_index = opt.pad_token, size_average = False) / (count_nonpad_tokens(ys,1))
-            loss = F.nll_loss(F.log_softmax(loss_input,dim = 1), ys, ignore_index = 1)
+            loss = F.cross_entropy(preds_idx.contiguous().view(preds_idx.size(-1), -1).transpose(0,1), ys, \
+                                   ignore_index = opt.pad_token, size_average = False) / (count_nonpad_tokens(ys,1))
+            # loss = F.nll_loss(F.log_softmax(loss_input,dim = 1), ys, ignore_index = 1)
             # print(F.softmax(loss_input,dim = 1))
             loss.backward()
             opt.optimizer.step()
@@ -131,17 +131,7 @@ def train(model, opt):
                 print("   %dm: epoch %d [%s%s]  %d%%  training loss = %.3f" %\
                 ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join('#'*(p//5)), "".join(' '*(20-(p//5))), p, avg_loss), end ='\r')
 
-            # checkpoint in terms of minutes reached, then save weights, and other information
-            if opt.checkpoint > 0 and ((time.time()-cptime)//60) // opt.checkpoint >= 1:
-                print("checkpoint save...")
-                torch.save({
-                'epoch': epoch + epoch_load,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': opt.optimizer.state_dict(),
-                'loss': avg_loss,
-                'step_num': step_num
-                }, 'weights/' + opt.weights_name)
-                cptime = time.time()
+
 
         avg_loss = np.mean(total_loss)
 
@@ -159,13 +149,13 @@ def train(model, opt):
                 input_mask, target_mask = create_masks(input, trg_input, opt)
                 preds_validate = model(input, trg_input, input_mask, target_mask)
 
-                criterion = torch.nn.KLDivLoss(size_average = False)
-                validate_input = preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1)
-                smoothed_target_validate = LabelSmoothing(validate_input, ys, 0.0, 1)
-                validate_loss = criterion(validate_input, smoothed_target_validate)/ (count_nonpad_tokens(ys, 1))
-                # validate_loss = F.cross_entropy(preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1), ys, \
-                #                        ignore_index = opt.pad_token, size_average = False) / (count_nonpad_tokens(ys, 1))
-                validate_loss = F.nll_loss(F.log_softmax(validate_input, dim = 1), ys, ignore_index = 1)
+                # criterion = torch.nn.KLDivLoss(size_average = False)
+                # validate_input = preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1)
+                # smoothed_target_validate = LabelSmoothing(validate_input, ys, 0.0, 1)
+                # validate_loss = criterion(validate_input, smoothed_target_validate)/ (count_nonpad_tokens(ys, 1))
+                validate_loss = F.cross_entropy(preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1), ys, \
+                                       ignore_index = opt.pad_token, size_average = False) / (count_nonpad_tokens(ys, 1))
+                # validate_loss = F.nll_loss(F.log_softmax(validate_input, dim = 1), ys, ignore_index = 1)
                 # validate_loss = F.binary_cross_entropy_with_logits(validate_input, smoothed_target_validate, size_average = False) / (count_nonpad_tokens(ys, 1))
                 total_validate_loss.append(validate_loss.item())
             avg_validate_loss = np.mean(total_validate_loss)
@@ -173,6 +163,26 @@ def train(model, opt):
         # Store the average training & validation loss for each epoch
         t_loss_per_epoch.append(avg_loss)
         v_loss_per_epoch.append(avg_validate_loss)
+
+        # checkpoint in terms of minutes reached, then save weights, and other information
+        if opt.checkpoint > 0 and ((time.time()-cptime)//60) // opt.checkpoint >= 1:
+            print("checkpoint save...")
+            torch.save({
+            'epoch': epoch + epoch_load,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': opt.optimizer.state_dict(),
+            'loss': avg_loss,
+            'step_num': step_num
+            }, 'weights/' + opt.weights_name)
+            cptime = time.time()
+
+            # Convert list into numpy arrays
+            t_loss_per_epoch_tmp = np.array(t_loss_per_epoch)
+            v_loss_per_epoch_tmp = np.array(v_loss_per_epoch)
+
+            # Save the arrays for plotting later
+            np.save(('outputs/t_loss%dm_'%int((time.time() - start)//60))+opt.weights_name, t_loss_per_epoch_tmp)
+            np.save(('outputs/t_loss%dm_'%int((time.time() - start)//60))+opt.weights_name, v_loss_per_epoch_tmp)
 
         print("%dm: epoch %d [%s%s]  %d%%  training loss = %.3f\nepoch %d complete, training loss = %.03f, validation loss = %.03f" %\
         ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join('#'*(100//5)), "".join(' '*(20-(100//5))), 100, avg_loss, (epoch + epoch_load) + 1, avg_loss, avg_validate_loss))
@@ -282,8 +292,8 @@ def promptNextAction(model, opt, epoch, step_num, avg_loss, t_loss_per_epoch, v_
             v_loss_per_epoch = np.array(v_loss_per_epoch)
 
             # Save the arrays for plotting later
-            np.save('outputs/t_loss%d'%int(time.time()//60), t_loss_per_epoch)
-            np.save('outputs/v_loss%d'%int(time.time()//60), v_loss_per_epoch)
+            np.save(('outputs/t_loss%dm_'%int((time.time() - start)//60))+opt.weights_name, t_loss_per_epoch)
+            np.save(('outputs/t_loss%dm_'%int((time.time() - start)//60))+opt.weights_name, v_loss_per_epoch)
 
             print("exiting program...")
             break
