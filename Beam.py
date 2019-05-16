@@ -56,6 +56,7 @@ def k_best_outputs(outputs, out, log_scores, i, k):
 def beam_search(src, model, opt):
     outputs, e_outputs, log_scores = init_vars(src, model, opt)
     init_start_len = outputs.shape[0]
+    src_mask = (src != opt.pad_token).unsqueeze(-2).to(opt.device)
 
     for i in range(init_start_len, opt.max_seq_len):
         # Just comment this block of code if only use encoder once at the start
