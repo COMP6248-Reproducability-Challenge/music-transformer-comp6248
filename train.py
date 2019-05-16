@@ -182,7 +182,7 @@ def train(model, opt):
 
             # Save the arrays for plotting later
             np.save(('outputs/t_loss%dm_'%int((time.time() - start)//60))+opt.weights_name, t_loss_per_epoch_tmp)
-            np.save(('outputs/t_loss%dm_'%int((time.time() - start)//60))+opt.weights_name, v_loss_per_epoch_tmp)
+            np.save(('outputs/v_loss%dm_'%int((time.time() - start)//60))+opt.weights_name, v_loss_per_epoch_tmp)
 
         print("%dm: epoch %d [%s%s]  %d%%  training loss = %.3f\nepoch %d complete, training loss = %.03f, validation loss = %.03f" %\
         ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join('#'*(100//5)), "".join(' '*(20-(100//5))), 100, avg_loss, (epoch + epoch_load) + 1, avg_loss, avg_validate_loss))
@@ -292,8 +292,8 @@ def promptNextAction(model, opt, epoch, step_num, avg_loss, t_loss_per_epoch, v_
             v_loss_per_epoch = np.array(v_loss_per_epoch)
 
             # Save the arrays for plotting later
-            np.save(('outputs/t_loss%dm_'%int((time.time() - start)//60))+opt.weights_name, t_loss_per_epoch)
-            np.save(('outputs/t_loss%dm_'%int((time.time() - start)//60))+opt.weights_name, v_loss_per_epoch)
+            np.save(('outputs/t_loss_final_')+opt.weights_name, t_loss_per_epoch)
+            np.save(('outputs/v_loss_final_')+opt.weights_name, v_loss_per_epoch)
 
             print("exiting program...")
             break
