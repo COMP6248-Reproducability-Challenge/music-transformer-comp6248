@@ -21,7 +21,7 @@ Nonetheless, these are the results obtained after training for **300** epochs:
 |:----------------------------------:|:-------------------:|:---------------------:|
 |             Baseline TF            |        1.731        |         3.398         |
 | Baseline TF + concat pos sinusoids |        2.953        |       3.575           |
-|     TF with relative attention     |        TO ADD       |      TO ADD           |
+|     TF with relative attention     |        3.028       |      3.743           |
 
 
 Please read the [report](report.pdf) for more detailed information regarding the re-implementation.
