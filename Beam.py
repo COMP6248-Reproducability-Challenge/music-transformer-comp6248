@@ -1,8 +1,10 @@
+# Filename: Beam.py
+# Date Created: 15-Mar-2019 2:42:12 pm
+# Description: Functions used for beam search.
 import torch
 import torch.nn.functional as F
 from MaskGen import nopeak_mask
 import math
-
 
 def init_vars(src, model, opt):
     # outputs used for the decoder is the starting pitches
@@ -74,18 +76,3 @@ def beam_search(src, model, opt):
 
     # return the one with the largest log_scores
     return outputs[0]
-    #
-    #     if (outputs==eos_tok).nonzero().size(0) == opt.k:
-    #         alpha = 0.7
-    #         div = 1/((outputs==eos_tok).nonzero()[:,1].type_as(log_scores)**alpha)
-    #         _, ind = torch.max(log_scores * div, 1)
-    #         ind = ind.data[0]
-    #         break
-    #
-    # if ind is None:
-    #     length = (outputs[0]==eos_tok).nonzero()[0]
-    #     return ' '.join([TRG.vocab.itos[tok] for tok in outputs[0][1:length]])
-    #
-    # else:
-    #     length = (outputs[ind]==eos_tok).nonzero()[0]
-    #     return ' '.join([TRG.vocab.itos[tok] for tok in outputs[ind][1:length]])

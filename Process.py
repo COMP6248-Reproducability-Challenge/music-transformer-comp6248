@@ -9,7 +9,6 @@ def IndexToPitch(input, vocab):
     Converts the index values from model's output back to pitches from vocab.
     """
     index_vocab = np.arange(len(vocab))
-#     output = copy.deepcopy(input)
     output = input.clone()
 
     for i, val in reversed(list(enumerate(index_vocab))):
@@ -31,12 +30,6 @@ def ProcessModelOutput(model_output):
     # Convert tensor to numpy
     output = model_output.cpu().detach().numpy()
 
-    # Remove SOS tokens
-    # output = output[output!=sos_token]
-
-    # Remove EOS tokens
-    # output = output[output!=eos_token]
-
     # Replace all pad tokens with rest tokens
     output[output==pad_token] = rest_token
 
@@ -49,7 +42,6 @@ def ProcessModelOutput(model_output):
     return output
 
 def get_len(train):
-
     for i, b in enumerate(train):
         pass
 

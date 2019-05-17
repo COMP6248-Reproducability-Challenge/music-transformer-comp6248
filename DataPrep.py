@@ -1,6 +1,5 @@
 # Filename: DataPrep.py
 # Date Created: 08-Mar-2019 10:01:18 pm
-# Author: zckoh
 # Description: Functions for preparing the dataset for training and evaluation.
 
 import torch
@@ -35,8 +34,6 @@ def PrepareData(npz_file, split='train', L=1024):
 
     # Initialize the tokens
     pad_token = np.array([[1]])
-    # sos_token = np.array([[2]])
-    # eos_token = np.array([[3]])
 
     # Repeat for all samples in data
     pairs = []
@@ -54,13 +51,9 @@ def PrepareData(npz_file, split='train', L=1024):
 
         # Set the NaN values to 0 and reshape accordingly
         input_seq = np.nan_to_num(input_seq.reshape(1,input_seq.size))
-        # Add SOS token in the front
-        # input_seq = np.append(sos_token,input_seq, axis=1)
 
         # Generate target
         output_seq = input_seq[:,1:]
-        # Add EOS token in the end
-        # output_seq = np.append(output_seq,eos_token, axis=1)
 
         # For both sequences, pad to sequence length L
         pad_array = pad_token * np.ones((1,1024-input_seq.shape[1]))
@@ -99,7 +92,5 @@ def GenerateVocab(npz_file):
 
     vocab = np.unique(vocab)
     vocab = vocab[~np.isnan(vocab)]
-    # Add rest, pad, sos and eos tokens.
-    # vocab = np.append([0,1,2,3],vocab)
     vocab = np.append([0,1],vocab)
     return vocab

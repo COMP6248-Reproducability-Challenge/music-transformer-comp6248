@@ -1,9 +1,6 @@
-"""
-Created on Sun Mar 10 21:58:37 2019
-
-@author: jhy3g15
-"""
-
+# Filename: PositionalFeedForward.py
+# Date Created: 10-Mar-2019 21:58:37 2019
+# Description: FeedForward layer used in encoder and decoder.
 import torch.nn as nn
 import torch.nn.functional as F
 

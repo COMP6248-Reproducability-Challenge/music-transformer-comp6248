@@ -1,3 +1,6 @@
+# Filename: Sublayers.py
+# Date Created: 15-Mar-2019 2:42:12 pm
+# Description: Sublayer functions used for attention mechanism.
 import torch
 import torch.nn as nn
 import math
@@ -6,9 +9,9 @@ import numpy as np
 from torch.autograd import Variable
 
 def shape_list(x):
-    """Return list of dims
     """
-
+    Return list of dims.
+    """
     shape = list(x.shape)
 
     return shape
@@ -36,11 +39,8 @@ def _relative_position_to_absolute_position_masked(x):
 
     batch, heads, length, _ = shape_list(x)
 
-    # print(x)
     x = F.pad(x, (1, 0, 0, 0, 0, 0, 0, 0))
-    # print("After pad: ", x.shape)
     x = torch.reshape(x, (batch, heads, 1 + length, length))
-    # print(x.shape)
     x = x[0:x.shape[0] - 0, 0:x.shape[1] - 0, 1:x.shape[2], 0:x.shape[3] - 0]
 
     return x
@@ -92,15 +92,15 @@ def get_relative_embeddings_pitch_time(max_relative_position, length, depth,
         (0, 0, pad_length, 0, pad_length, 0))
     used_relative_time_embeddings = padded_relative_time_embeddings[
                                 slice_start_position:length,
-                                slice_start_position:slice_start_position + length,
+                                slice_start_position:length,
                                 0:(padded_relative_time_embeddings.shape[2] - 0)
                                 ]
     padded_relative_pitch_embeddings = F.pad(
         relative_pitch_embeddings,
         (0, 0, pad_length, 0, pad_length, 0))
     used_relative_pitch_embeddings = padded_relative_pitch_embeddings[
-                                slice_start_position:slice_start_position + length,
-                                slice_start_position:slice_start_position + length,
+                                slice_start_position:length,
+                                slice_start_position:length,
                                 0:(padded_relative_pitch_embeddings.shape[2] - 0)
                                 ]
 
@@ -136,37 +136,23 @@ def get_relative_embeddings_left(max_relative_position, length, depth,
 
     pad_length = max(length - max_relative_position, 0)
     slice_start_position = max(max_relative_position - length, 0)
-    # print("slice_start_position: ", slice_start_position)
-    # print("length: ", length)
+
     if heads_share_relative_embedding:
         padded_relative_embeddings = F.pad(
             relative_embeddings,
             (0, 0, pad_length, 0))
-    # used_relative_embeddings = tf.slice(
-    #     padded_relative_embedding,
-    #     [start_slice_position, 0], [length, -1])
-        used_relative_embeddings = padded_relative_embeddings[slice_start_position:slice_start_position + length,
+        used_relative_embeddings = padded_relative_embeddings[slice_start_position:length,
                                                 0:(padded_relative_embeddings.shape[1] - 0)]
     else:
-    # padded_relative_embeddings = tf.pad(
-    #     relative_embeddings,
-    #     [[0, 0], [pad_length, 0], [0, 0]])
-    # used_relative_embeddings = tf.slice(
-    #     padded_relative_embeddings,
-    #     [0, start_slice_position, 0], [-1, length, -1])
-        # padded_relative_embeddings = F.pad(
-        #     relative_embeddings,
-        #     (0, 0, pad_length, 0, 0, 0))
         padded_relative_embeddings = F.pad(
             relative_embeddings,
             (0, 0, pad_length, 0, 0, 0))
-        # print("padded embeddings: ", padded_relative_embeddings.shape)
         used_relative_embeddings = padded_relative_embeddings[
                                     0:(padded_relative_embeddings.shape[0] - 0),
-                                    slice_start_position:slice_start_position + length,
+                                    slice_start_position:length,
                                     0:(padded_relative_embeddings.shape[2] - 0)
                                     ]
-        # print("sliced embeddings: ", used_relative_embeddings.shape)
+
     return used_relative_embeddings, relative_embeddings
 
 
@@ -191,13 +177,9 @@ def dot_product_self_attention_relative(q,
 
     logits = torch.matmul(q, k.transpose(-2, -1))
 
-    # print("q is :     ", q.shape)
-
     if mask is not None:
         mask = mask.unsqueeze(1) #shape of mask must be broadcastable with shape of underlying tensor
         logits = logits.masked_fill(mask == 0, -1e9) #masked_fill fills elements of scores with -1e9 where mask == 0
-
-    # print("logits:     ", logits.shape)
 
     key_relative_embeddings, relative_embeddings = get_relative_embeddings_left(
         max_relative_position, length, depth_k, heads, heads_share_relative_embedding, relative_embeddings)
@@ -206,10 +188,7 @@ def dot_product_self_attention_relative(q,
 
     relative_logits = matmul_with_relative_keys(q, key_relative_embeddings,
                                                 heads_share_relative_embedding)
-    #
-    # print("relative_logits: ", relative_logits.shape)
-    # print("q: ", q.shape)
-    # print("key_relative_embeddings: ", key_relative_embeddings.shape)
+
     relative_logits = _relative_position_to_absolute_position_masked(relative_logits)  #[1, 8, 1023, 1024]
 
     if relative_time_pitch == True:
@@ -239,7 +218,6 @@ def dot_product_self_attention_relative(q,
         return output, relative_embeddings, relative_time_embeddings, relative_pitch_embeddings
 
     else:
-
         logits += relative_logits
 
         if bias is not None:
@@ -302,13 +280,7 @@ class MultiHeadAttention(nn.Module):
 
         bs = q.size(0) #batch size
 
-        # perform linear operation and split into h heads
-
-        #q = torch.zeros(512,3,512)
-        # x = nn.Linear(512,512)
-        # x = x(q).view(512, -1, 8, 512//8) will result in torch.Size([512, 3, 8, 64])
-
-        #original size bs * seq_len * h * d_k
+        # original size bs * seq_len * h * d_k
         k = self.k_linear(k).view(bs, -1, self.h, self.d_k)
         q = self.q_linear(q).view(bs, -1, self.h, self.d_k)
         v = self.v_linear(v).view(bs, -1, self.h, self.d_k)
@@ -319,7 +291,7 @@ class MultiHeadAttention(nn.Module):
         q = q.transpose(1,2)
         v = v.transpose(1,2)
 
-    # calculate attention using defined attention function
+        # calculate attention using defined attention function
         if self.attention_type == "Baseline":
             scores = attention(q, k, v, self.d_k, mask, self.dropout)
 

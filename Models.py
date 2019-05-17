@@ -105,11 +105,6 @@ class Transformer(nn.Module):
         d_output = self.decoder(trg, e_outputs, src_mask, trg_mask)
         output = self.linear(d_output)
 
-        # # Add log softmax layer as the top layer
-        # log_softmax_outputs = F.log_softmax(linear_output,dim=2)
-        #
-        # # Find the small value and take as the output
-        # outputs = log_softmax_outputs.argmin(dim=2)
         return output
 
 def get_model(opt, vocab_size):
@@ -124,17 +119,9 @@ def get_model(opt, vocab_size):
 
     if opt.load_weights is not None:
         print("loading pretrained weights...")
-        # checkpoint = torch.load(f'{opt.load_weights}/' + opt.weights_name)
         checkpoint = torch.load(f'{opt.load_weights}/' + opt.weights_name, map_location = 'cpu')
         model.load_state_dict(checkpoint['model_state_dict'])
-    # if opt.load_weights is not None:
-    #     print("loading pretrained weights...")
-    #     model.load_state_dict(torch.load(f'{opt.load_weights}/model_weights'))
-    # else:
-    #     for p in model.parameters():
-    #         if p.dim() > 1:
-    #             nn.init.xavier_uniform_(p)
-    #
+
     model = model.to(opt.device)
 
     return model

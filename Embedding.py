@@ -1,6 +1,5 @@
 # Filename: Embedding.py
 # Date Created: 08-Mar-2019 4:38:59 pm
-# Author: zckoh
 # Description: Embedding method before input to encoder.
 #              Includes basic embedding, positional encoding,
 #              and concatenating positional encoding.
@@ -43,7 +42,7 @@ class PositionalEncoder(nn.Module):
         pe = Variable(self.pe[:, :x.size(1)], requires_grad=False)
         pe = pe.repeat((x.shape[0],1,1))
         x = x + pe
-        
+
         return self.dropout(x)
 
 class PositionalEncoderConcat(nn.Module):

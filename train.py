@@ -20,7 +20,6 @@ def count_nonpad_tokens(target, padding_index):
     ntokens = torch.sum(nonpads)
     return ntokens
 
-
 def LabelSmoothing(input, target, smoothing, padding_index):
     """
     Args:
@@ -74,7 +73,6 @@ def train(model, opt):
         step_num_load = checkpoint['step_num']  # to keep track of learning rate
         epoch_load = checkpoint['epoch']
     step_num += step_num_load
-    # epoch_load += epoch_load
 
     for epoch in range(opt.epochs):
         model.train()
@@ -94,10 +92,7 @@ def train(model, opt):
             pair = batch
             input = tensorFromSequence(pair[0]).to(opt.device)
             target = tensorFromSequence(pair[1]).to(opt.device)
-            # input = pair[0].to(opt.device)
-            # target = pair[1].to(opt.device)
 
-            # trg_input = target[:,:-1]
             trg_input = target
             ys = target[:, 0:].contiguous().view(-1)
 
@@ -108,16 +103,9 @@ def train(model, opt):
 
             opt.optimizer.zero_grad()
 
-            # loss_input = preds_idx.contiguous().view(preds_idx.size(-1), -1).transpose(0,1)
-            # smoothed_target = LabelSmoothing(loss_input, ys, 0.1, 1)
-            # criterion =  torch.nn.KLDivLoss(size_average = False)
-            # loss = criterion(loss_input, smoothed_target)/ (count_nonpad_tokens(ys, 1))
-            # print(count_nonpad_tokens(ys, 1))
-            # loss = F.binary_cross_entropy_with_logits(loss_input, smoothed_target, size_average = False) / (count_nonpad_tokens(ys, 1))
             loss = F.cross_entropy(preds_idx.contiguous().view(preds_idx.size(-1), -1).transpose(0,1), ys, \
                                    ignore_index = opt.pad_token, size_average = False) / (count_nonpad_tokens(ys,1))
-            # loss = F.nll_loss(F.log_softmax(loss_input,dim = 1), ys, ignore_index = 1)
-            # print(F.softmax(loss_input,dim = 1))
+
             loss.backward()
             opt.optimizer.step()
             step_num += 1
@@ -130,8 +118,6 @@ def train(model, opt):
 
                 print("   %dm: epoch %d [%s%s]  %d%%  training loss = %.3f" %\
                 ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join('#'*(p//5)), "".join(' '*(20-(p//5))), p, avg_loss), end ='\r')
-
-
 
         avg_loss = np.mean(total_loss)
 
@@ -148,15 +134,8 @@ def train(model, opt):
 
                 input_mask, target_mask = create_masks(input, trg_input, opt)
                 preds_validate = model(input, trg_input, input_mask, target_mask)
-
-                # criterion = torch.nn.KLDivLoss(size_average = False)
-                # validate_input = preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1)
-                # smoothed_target_validate = LabelSmoothing(validate_input, ys, 0.0, 1)
-                # validate_loss = criterion(validate_input, smoothed_target_validate)/ (count_nonpad_tokens(ys, 1))
                 validate_loss = F.cross_entropy(preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1), ys, \
                                        ignore_index = opt.pad_token, size_average = False) / (count_nonpad_tokens(ys, 1))
-                # validate_loss = F.nll_loss(F.log_softmax(validate_input, dim = 1), ys, ignore_index = 1)
-                # validate_loss = F.binary_cross_entropy_with_logits(validate_input, smoothed_target_validate, size_average = False) / (count_nonpad_tokens(ys, 1))
                 total_validate_loss.append(validate_loss.item())
             avg_validate_loss = np.mean(total_validate_loss)
 

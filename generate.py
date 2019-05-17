@@ -1,3 +1,6 @@
+# Filename: generate.py
+# Date Created: 08-May-2019 11:48:49 pm
+# Description: Run this script to generate music using the music-transformer model.
 import argparse
 import torch
 from DataPrep import GenerateVocab, PrepareData, tensorFromSequence
