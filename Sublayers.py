@@ -36,6 +36,7 @@ def _relative_position_to_absolute_position_masked(x):
 
     batch, heads, length, _ = shape_list(x)
 
+    # print(x)
     x = F.pad(x, (1, 0, 0, 0, 0, 0, 0, 0))
     # print("After pad: ", x.shape)
     x = torch.reshape(x, (batch, heads, 1 + length, length))
@@ -91,15 +92,15 @@ def get_relative_embeddings_pitch_time(max_relative_position, length, depth,
         (0, 0, pad_length, 0, pad_length, 0))
     used_relative_time_embeddings = padded_relative_time_embeddings[
                                 slice_start_position:length,
-                                slice_start_position:length,
+                                slice_start_position:slice_start_position + length,
                                 0:(padded_relative_time_embeddings.shape[2] - 0)
                                 ]
     padded_relative_pitch_embeddings = F.pad(
         relative_pitch_embeddings,
         (0, 0, pad_length, 0, pad_length, 0))
     used_relative_pitch_embeddings = padded_relative_pitch_embeddings[
-                                slice_start_position:length,
-                                slice_start_position:length,
+                                slice_start_position:slice_start_position + length,
+                                slice_start_position:slice_start_position + length,
                                 0:(padded_relative_pitch_embeddings.shape[2] - 0)
                                 ]
 
@@ -135,7 +136,8 @@ def get_relative_embeddings_left(max_relative_position, length, depth,
 
     pad_length = max(length - max_relative_position, 0)
     slice_start_position = max(max_relative_position - length, 0)
-
+    # print("slice_start_position: ", slice_start_position)
+    # print("length: ", length)
     if heads_share_relative_embedding:
         padded_relative_embeddings = F.pad(
             relative_embeddings,
@@ -143,7 +145,7 @@ def get_relative_embeddings_left(max_relative_position, length, depth,
     # used_relative_embeddings = tf.slice(
     #     padded_relative_embedding,
     #     [start_slice_position, 0], [length, -1])
-        used_relative_embeddings = padded_relative_embeddings[slice_start_position:length,
+        used_relative_embeddings = padded_relative_embeddings[slice_start_position:slice_start_position + length,
                                                 0:(padded_relative_embeddings.shape[1] - 0)]
     else:
     # padded_relative_embeddings = tf.pad(
@@ -158,12 +160,13 @@ def get_relative_embeddings_left(max_relative_position, length, depth,
         padded_relative_embeddings = F.pad(
             relative_embeddings,
             (0, 0, pad_length, 0, 0, 0))
+        # print("padded embeddings: ", padded_relative_embeddings.shape)
         used_relative_embeddings = padded_relative_embeddings[
                                     0:(padded_relative_embeddings.shape[0] - 0),
-                                    slice_start_position:length,
+                                    slice_start_position:slice_start_position + length,
                                     0:(padded_relative_embeddings.shape[2] - 0)
                                     ]
-
+        # print("sliced embeddings: ", used_relative_embeddings.shape)
     return used_relative_embeddings, relative_embeddings
 
 
@@ -203,7 +206,10 @@ def dot_product_self_attention_relative(q,
 
     relative_logits = matmul_with_relative_keys(q, key_relative_embeddings,
                                                 heads_share_relative_embedding)
-
+    #
+    # print("relative_logits: ", relative_logits.shape)
+    # print("q: ", q.shape)
+    # print("key_relative_embeddings: ", key_relative_embeddings.shape)
     relative_logits = _relative_position_to_absolute_position_masked(relative_logits)  #[1, 8, 1023, 1024]
 
     if relative_time_pitch == True:
