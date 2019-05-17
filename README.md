@@ -59,7 +59,7 @@ The generated sequences can be plotted and listened using this [IPython Notebook
   - Then follow these steps:
   ```
   conda create -n torch python=3.6
-  conda activate torch`
+  conda activate torch
   conda install pytorch torchvision cuda90 -c pytorch
   ```
 
