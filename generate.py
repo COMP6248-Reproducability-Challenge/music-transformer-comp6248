@@ -33,6 +33,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-src_data', required=True)
     parser.add_argument('-load_weights', required=False)
+    parser.add_argument('-output_name', type=str, required=True)
     parser.add_argument('-device', type=str, default="cuda:1" if torch.cuda.is_available() else "cpu")
     parser.add_argument('-k', type=int, default=3)
     parser.add_argument('-d_model', type=int, default=256)
@@ -56,6 +57,9 @@ def main():
     # Create the model using the arguments and the vocab size
     model = get_model(opt, len(opt.vocab))
 
+    # counter to keep track of how many outputs have been saved
+    opt.save_counter = 0
+
     # Now lets generate some music
     generated_music = generate(model,opt)
 
@@ -75,7 +79,8 @@ def promptNextAction(model, opt, processed):
         if save == 'y':
             print("saving music...")
             # Pickle the processed outputs for magenta later
-            np.save('outputs/gen_output%d'%int(time.time()//60), processed)
+            opt.save_counter += 1
+            np.save('outputs/' + opt.output_name + str(opt.save_counter), processed)
 
         res = yesno(input("generate again? [y/n] : "))
         if res == 'y':
