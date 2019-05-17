@@ -27,7 +27,13 @@ Nonetheless, these are the results obtained after training for **300** epochs:
 Please read the [report](report.pdf) for more detailed information regarding the re-implementation.
 
 ## Usage
+**Note: Please create the following folders in this directory before running the scripts:**
+- `./weights/` - for storing the trained weights.
+- `./outputs/` - for storing training/validation loss values and generated outputs.
+- `./plots/` - for storing the plots.
+
 To train the models, simply run `train.py` and add the arguments accordingly:  
+
 ```
 python train.py -src_data datasets/JSB-Chorales-dataset/Jsb16thSeparated.npz -epochs 300 -weights_name baselineTF_300epoch -device cuda:2 -checkpoint 10
 ```
