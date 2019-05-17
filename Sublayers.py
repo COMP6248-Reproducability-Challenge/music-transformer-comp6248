@@ -92,15 +92,15 @@ def get_relative_embeddings_pitch_time(max_relative_position, length, depth,
         (0, 0, pad_length, 0, pad_length, 0))
     used_relative_time_embeddings = padded_relative_time_embeddings[
                                 slice_start_position:length,
-                                slice_start_position:length,
+                                slice_start_position:slice_start_position + length,
                                 0:(padded_relative_time_embeddings.shape[2] - 0)
                                 ]
     padded_relative_pitch_embeddings = F.pad(
         relative_pitch_embeddings,
         (0, 0, pad_length, 0, pad_length, 0))
     used_relative_pitch_embeddings = padded_relative_pitch_embeddings[
-                                slice_start_position:length,
-                                slice_start_position:length,
+                                slice_start_position:slice_start_position + length,
+                                slice_start_position:slice_start_position + length,
                                 0:(padded_relative_pitch_embeddings.shape[2] - 0)
                                 ]
 
@@ -141,15 +141,17 @@ def get_relative_embeddings_left(max_relative_position, length, depth,
         padded_relative_embeddings = F.pad(
             relative_embeddings,
             (0, 0, pad_length, 0))
-        used_relative_embeddings = padded_relative_embeddings[slice_start_position:length,
+
+        used_relative_embeddings = padded_relative_embeddings[slice_start_position:slice_start_position + length,
                                                 0:(padded_relative_embeddings.shape[1] - 0)]
     else:
         padded_relative_embeddings = F.pad(
             relative_embeddings,
             (0, 0, pad_length, 0, 0, 0))
+
         used_relative_embeddings = padded_relative_embeddings[
                                     0:(padded_relative_embeddings.shape[0] - 0),
-                                    slice_start_position:length,
+                                    slice_start_position:slice_start_position + length,
                                     0:(padded_relative_embeddings.shape[2] - 0)
                                     ]
 
@@ -280,7 +282,7 @@ class MultiHeadAttention(nn.Module):
 
         bs = q.size(0) #batch size
 
-        # original size bs * seq_len * h * d_k
+        #original size bs * seq_len * h * d_k
         k = self.k_linear(k).view(bs, -1, self.h, self.d_k)
         q = self.q_linear(q).view(bs, -1, self.h, self.d_k)
         v = self.v_linear(v).view(bs, -1, self.h, self.d_k)
@@ -291,7 +293,7 @@ class MultiHeadAttention(nn.Module):
         q = q.transpose(1,2)
         v = v.transpose(1,2)
 
-        # calculate attention using defined attention function
+    # calculate attention using defined attention function
         if self.attention_type == "Baseline":
             scores = attention(q, k, v, self.d_k, mask, self.dropout)
 
