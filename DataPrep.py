@@ -56,9 +56,9 @@ def PrepareData(npz_file, split='train', L=1024):
         output_seq = input_seq[:,1:]
 
         # For both sequences, pad to sequence length L
-        pad_array = pad_token * np.ones((1,1024-input_seq.shape[1]))
+        pad_array = pad_token * np.ones((1,L-input_seq.shape[1]))
         input_seq = np.append(input_seq, pad_array,axis=1)
-        pad_array = pad_token * np.ones((1,1024-output_seq.shape[1]))
+        pad_array = pad_token * np.ones((1,L-output_seq.shape[1]))
         output_seq = np.append(output_seq, pad_array,axis=1)
 
         # Map the pitch value to int values below vocab size
