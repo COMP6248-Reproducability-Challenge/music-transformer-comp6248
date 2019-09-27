@@ -118,8 +118,7 @@ def train(model, opt):
 
             loss.backward()
 
-            if step_num % 16 == 0:
-                opt.optimizer.step()
+            opt.optimizer.step()
 
             step_num += 1
 
