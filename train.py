@@ -14,6 +14,7 @@ import os
 
 torch.set_default_dtype(torch.float)
 torch.set_default_tensor_type(torch.FloatTensor)
+#torch.autograd.detect_anomaly = True
 
 def count_nonpad_tokens(target, padding_index):
     nonpads = (target != padding_index).squeeze()
@@ -40,6 +41,12 @@ def LabelSmoothing(input, target, smoothing, padding_index):
         true_dist.index_fill_(0, mask.squeeze(), 0.0)
 
     return torch.autograd.Variable(true_dist, requires_grad = False)
+
+def batched_learning(train,batch_size):
+    for i in range(0, len(train), batch_size):
+        train1 = train[i:i + batch_size]
+        yield train1[:,0],train1[:,1]
+
 
 def train(model, opt):
     print("training model...")
@@ -77,6 +84,7 @@ def train(model, opt):
     for epoch in range(opt.epochs):
         model.train()
 
+        np.random.shuffle(opt.train)
         # learning rate defined in Attention is All You Need Paper
         opt.lr = (opt.d_model ** (-0.5)) * (min(step_num ** (-0.5), step_num * warmup_steps ** (-1.5)))
 
@@ -88,10 +96,12 @@ def train(model, opt):
         print("   %dm: epoch %d [%s]  %d%%  training loss = %s" %\
         ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join(' '*20), 0, '...'), end='\r')
 
-        for i, batch in enumerate(opt.train):
-            pair = batch
-            input = tensorFromSequence(pair[0]).to(opt.device)
-            target = tensorFromSequence(pair[1]).to(opt.device)
+
+        for i, batch in enumerate(batched_learning(opt.train, batch_size=opt.batch_size)):
+            input, target = batch
+            #print(input.shape,target.shape)
+            input = tensorFromSequence(input).to(opt.device)
+            target = tensorFromSequence(target).to(opt.device)
 
             trg_input = target
             ys = target[:, 0:].contiguous().view(-1)
@@ -107,8 +117,12 @@ def train(model, opt):
                                    ignore_index = opt.pad_token, size_average = False) / (count_nonpad_tokens(ys,1))
 
             loss.backward()
-            opt.optimizer.step()
+
+            if step_num % 16 == 0:
+                opt.optimizer.step()
+
             step_num += 1
+
 
             total_loss.append(loss.item())
 
@@ -119,24 +133,25 @@ def train(model, opt):
                 print("   %dm: epoch %d [%s%s]  %d%%  training loss = %.3f" %\
                 ((time.time() - start)//60, (epoch + epoch_load) + 1, "".join('#'*(p//5)), "".join(' '*(20-(p//5))), p, avg_loss), end ='\r')
 
+
         avg_loss = np.mean(total_loss)
 
         # Validation step
         model.eval()
         total_validate_loss = []
         with torch.no_grad():
-            for i, batch in enumerate(opt.valid):
-                pair = batch
-                input = tensorFromSequence(pair[0]).to(opt.device)
-                target = tensorFromSequence(pair[1]).to(opt.device)
-                trg_input = target
-                ys = target[:, 0:].contiguous().view(-1)
+            pair = opt.valid
+            input = tensorFromSequence(pair[0]).to(opt.device)
 
-                input_mask, target_mask = create_masks(input, trg_input, opt)
-                preds_validate = model(input, trg_input, input_mask, target_mask)
-                validate_loss = F.cross_entropy(preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1), ys, \
-                                       ignore_index = opt.pad_token, size_average = False) / (count_nonpad_tokens(ys, 1))
-                total_validate_loss.append(validate_loss.item())
+            target = tensorFromSequence(pair[1]).to(opt.device)
+            trg_input = target
+            ys = target[:, 0:].contiguous().view(-1)
+
+            input_mask, target_mask = create_masks(input, trg_input, opt)
+            preds_validate = model(input, trg_input, input_mask, target_mask)
+            validate_loss = F.cross_entropy(preds_validate.contiguous().view(preds_validate.size(-1), -1).transpose(0,1), ys, \
+                                   ignore_index = opt.pad_token, size_average = False) / (count_nonpad_tokens(ys, 1))
+            total_validate_loss.append(validate_loss.item())
             avg_validate_loss = np.mean(total_validate_loss)
 
         # Store the average training & validation loss for each epoch
@@ -179,7 +194,7 @@ def main():
     parser.add_argument('-n_layers', type=int, default=5)
     parser.add_argument('-heads', type=int, default=8)
     parser.add_argument('-dropout', type=float, default=0.1)
-    parser.add_argument('-batchsize', type=int, default=1)
+    parser.add_argument('-batch_size', type=int, default=1)
     parser.add_argument('-max_seq_len', type=int, default=1024)
     parser.add_argument('-printevery', type=int, default=100)
     parser.add_argument('-lr', type= float, default=0.0001)
@@ -207,7 +222,8 @@ def main():
     model = get_model(opt, len(opt.vocab))
 
     # Set up optimizer for training
-    opt.optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr, betas=(0.9, 0.98), eps=1e-9)
+    opt.optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr, betas=(0.9, 0.98), eps=1e-9, weight_decay=1e-4)
+
 
     # step_num is based on time, which is used to calculate learning rate
     step_num = 0
