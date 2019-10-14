@@ -11,7 +11,8 @@ def tensorFromSequence(sequence):
     """
     Generate tensors from the sequence in numpy.
     """
-    output = Variable(torch.tensor(sequence)).long()
+    output = torch.tensor(sequence).long()
+
     return output
 
 
@@ -24,7 +25,7 @@ def PrepareData(npz_file, split='train', L=1024):
     """
     print("Preparing data for",split,"split...")
     # Load in the data
-    full_data = np.load(npz_file, fix_imports=True, encoding="latin1")
+    full_data = np.load(npz_file, fix_imports=True, encoding="latin1", allow_pickle=True)
     data = full_data[split]
 
     # Extract the vocab from file
@@ -73,13 +74,13 @@ def PrepareData(npz_file, split='train', L=1024):
         pairs.append(pair)
 
     print("Generated data pairs.")
-    return pairs
+    return np.array(pairs)
 
 def GenerateVocab(npz_file):
     """
     Generate vocabulary for the dataset including the custom tokens.
     """
-    full_data = np.load(npz_file, fix_imports=True, encoding="latin1")
+    full_data = np.load(npz_file, fix_imports=True, encoding="latin1", allow_pickle=True)
     train_data = full_data['train']
     validation_data = full_data['valid']
     test_data = full_data['test']

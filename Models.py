@@ -45,6 +45,7 @@ class Encoder(nn.Module):
     def forward(self, src, mask):
         x = self.embed(src)
         x = self.pe(x)
+
         for i in range(self.N):
             x = self.layers[i](x.float(), mask)
         return self.norm(x)
@@ -86,6 +87,7 @@ class Decoder(nn.Module):
         # print(x.shape)
         for i in range(self.N):
             x = self.layers[i](x.float(), e_outputs, src_mask, trg_mask)
+
         return self.norm(x)
 
 class Transformer(nn.Module):
@@ -101,6 +103,7 @@ class Transformer(nn.Module):
         self.linear = nn.Linear(self.d_model, trg_vocab_size)
 
     def forward(self, src, trg, src_mask, trg_mask):
+
         e_outputs = self.encoder(src, src_mask)
         d_output = self.decoder(trg, e_outputs, src_mask, trg_mask)
         output = self.linear(d_output)

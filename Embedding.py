@@ -20,6 +20,7 @@ class Embedder(nn.Module):
 
     def forward(self, x):
         # make embeddings relatively larger
+
         return self.embed(x) * math.sqrt(self.d_model)
 
 class PositionalEncoder(nn.Module):
@@ -39,8 +40,11 @@ class PositionalEncoder(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        pe = Variable(self.pe[:, :x.size(1)], requires_grad=False)
+
+        pe = self.pe[:, :x.size(1)]
         pe = pe.repeat((x.shape[0],1,1))
+        pe = pe.unsqueeze(-2)
+
         x = x + pe
 
         return self.dropout(x)
@@ -66,6 +70,7 @@ class PositionalEncoderConcat(nn.Module):
         # Concatenate embeddings with positional sinusoid
         pe = Variable(self.pe[:, :x.size(1)], requires_grad=False)
         pe = pe.repeat((x.shape[0],1,1))
+        #print(pe.shape, x.shape)
         x = torch.cat((x,pe),2)
 
         return self.dropout(x)
